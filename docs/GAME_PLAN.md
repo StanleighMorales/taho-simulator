@@ -3,8 +3,9 @@
 A 3D browser game. You are **Lolo Ben**, an old taho vendor pushing through a Metro Manila
 neighbourhood for 7 days, saving up for his granddaughter's graduation photo package.
 
-Status: **M0 complete** — the web pipeline is proven end to end (see §10). Godot
-**4.7.2-stable**, Compatibility renderer, single-threaded web export.
+Status: **M0 complete and live** — https://stanleighmorales.github.io/taho-simulator/
+Godot **4.7.2-stable**, Compatibility renderer, single-threaded web export, deployed
+automatically from `main` (see §10).
 
 ---
 
@@ -251,18 +252,31 @@ Completed 2026-11-01. The pipeline works; everything below was measured, not ass
 | Download size | **9.73 MB gzipped** / 38 MB raw |
 | Pointer input | Verified in the exported build — drag reports live coordinates and a drag count, so the touch model works |
 | Export command | `godot --headless --export-release "Web" build/web/index.html` |
+| Live URL | https://stanleighmorales.github.io/taho-simulator/ |
+| CI | Green — build 37s, deploy 9s. The headless **Linux** export works, not just the Windows one. |
+| Framerate | **59–60 fps** on the live build (empty scene, dev machine). A real floor needs a loaded scene on weak hardware. |
 
 **Correction made during M0:** the plan originally specified FXAA. Screen-space AA does
 not exist in the Compatibility renderer (Forward+/Mobile only) and Godot warns about it.
 Removed; we rely on 3D viewport scaling instead.
 
-### Not yet verified
-- **Real framerate.** The automated browser pane throttles `requestAnimationFrame` to
-  ~2 fps when it isn't being actively watched, so the on-screen `fps` readout from that
-  environment is meaningless. Open the build yourself to get a true number.
-- **A real phone.** The pointer model is proven; actual touch hardware is not.
-- **itch.io and GitHub Pages deploys.** The CI workflow is written but has never run,
-  because the project has no remote yet.
+### Problems found and fixed during M0
+1. **FXAA does not exist in Compatibility.** Removed from the plan and the project.
+2. **Godot re-imported its own build output.** `build/` lives inside the project, so the
+   exported PNGs were scanned back in as assets and packed into the next build —
+   `index.pck` grew 13,028 → 37,152 bytes in one cycle, compounding every export.
+   Fixed with a tracked `build/.gdignore`.
+3. **`configure-pages` could not create the Pages site.** `enablement: true` failed with
+   *Resource not accessible by integration*. Fixed by creating the Pages site once via
+   the API (`gh api --method POST repos/.../pages -f build_type=workflow`); the workflow
+   now finds the existing site and succeeds.
+
+### Still not verified
+- **A real phone.** The pointer model is proven in the exported build, but no touch
+  hardware has run it.
+- **Framerate under load.** 59–60 fps on an empty scene says the pipeline is healthy; it
+  says nothing yet about the §7 budget with a city and NPCs on a weak laptop.
+- **itch.io.** The upload zip is built and verified but has not been uploaded.
 
 ### How to run it
 ```

@@ -3,6 +3,8 @@
 A 3D browser game. You play **Lolo Ben**, an old taho vendor working a Metro Manila
 neighbourhood for 7 days to save up for his granddaughter's graduation photo.
 
+**Play it: https://stanleighmorales.github.io/taho-simulator/**
+
 See **[docs/GAME_PLAN.md](docs/GAME_PLAN.md)** for the full design and technical plan.
 
 ## Requirements
