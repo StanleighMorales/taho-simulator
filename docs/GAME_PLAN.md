@@ -103,7 +103,7 @@ and tip.
 
 | # | Step | Gesture | Feel / failure |
 |---|---|---|---|
-| 1 | **Drain the whey** | Drag to tilt the bucket; a sweet-zone meter fills | Tilt too far and tofu slides toward the lip — comedy gasp, small penalty. Satisfying slosh. |
+| 1 | **Skim the water** | Dip the ladle in, sweep across, lift it out — one scoop per gesture | Vendors don't tip the bucket: the whey pools on the tofu and is lifted off. Only the dip depth matters. Go below the water and you bring up tofu. The layer thins as you work, so each scoop must be shallower than the last. |
 | 2 | **Shave the tofu** | Hold and sweep a flat arc with the ladle, repeatedly | Thin, smooth, confident arcs = intact silky layers. Jerky arcs = crumbled tofu. Fill to the cup's target line. |
 | 3 | **Sago pearls** | Scoop, drag over the cup, release | Pearls plop in with individual sounds. A ring gauge shows the target amount. |
 | 4 | **Arnibal** | Press and hold to pour, release at the right level | A thick, stretchy, slow syrup stream. The most ASMR moment in the game. Overflow is funny and costly. |
@@ -323,9 +323,27 @@ over-mixing. If a tuning change breaks the *point* of a step, a test fails.
 4. **Drain feedback contradicted itself**, showing "Clean" in the warning colour. The spill
    warning now depends on the tilt angle alone.
 
+### Step 1 was rebuilt after a reality check
+It was first built as "tilt the bucket to pour the whey off", which is not how
+taho is sold. Vendors leave the bucket standing and lift the water off the top with
+the flat ladle. It is now one scoop per gesture — dip, sweep, lift out — judged only on
+how deep you dipped, and the water layer thins as you remove it so every scoop has to be
+shallower than the last. The difficulty curve comes from the physical situation rather
+than from a tuning constant, which is the better kind.
+
+Two bugs came out of that rebuild:
+- A scoop was judged against the water level *after* it had been removed, so a correct
+  scoop was penalised. Now judged against the depth at the moment the ladle went in.
+- The bucket was a closed, opaque cylinder, so the player could not see the water they
+  were skimming — the gauge was the only feedback. The bucket is now open-topped with
+  tofu visible underneath, and the puddle shrinks in radius as well as depth, so skimming
+  visibly uncovers white tofu.
+
 ### Known gaps, honestly
 - **No audio at all.** The plan says the pour should be ASMR-satisfying and audio is most of
   that. This is the single biggest thing standing between M2 and "satisfying".
+- **The ladle has not been seen in motion** — it is only on screen mid-drag, which the
+  automated browser cannot capture.
 - **Feel is untuned by a human.** The numbers pass tests; nobody has yet said whether the
   drain takes too long or the swirl is too fussy.
 - **The marbling shader has not been seen at a readable size** — only in a small automated

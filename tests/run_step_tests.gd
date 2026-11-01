@@ -24,6 +24,19 @@ class StubView:
 	var arnibal := 0.0
 	var mix := 0.0
 	var delivered := false
+	var ladle_active := false
+
+	func bucket_screen_position() -> Vector2:
+		return Vector2(200, 200)
+
+	func bucket_screen_extent() -> float:
+		return 100.0
+
+	func set_ladle(active: bool, _u: float, _depth: float) -> void:
+		ladle_active = active
+
+	func skim_splash() -> void:
+		pass
 
 	func set_bucket_tilt(v: float) -> void:
 		tilt = v
@@ -72,8 +85,9 @@ class StubView:
 
 
 func _initialize() -> void:
-	_test_drain_clean()
-	_test_drain_spilled()
+	_test_skim_shallow()
+	_test_skim_too_deep()
+	_test_skim_needs_lifting_out()
 	_test_shave_smooth_beats_jerky()
 	_test_sago_amount()
 	_test_arnibal_timing()
@@ -114,39 +128,68 @@ func _make(step: ServingStep) -> StubView:
 	return view
 
 
-# --- drain -----------------------------------------------------------------
+# --- skim ------------------------------------------------------------------
 
-func _drain_with_tilt(drag_pixels: float) -> DrainStep:
-	var step := DrainStep.new()
-	var view := _make(step)
-	step.pointer_down(Vector2(400, 500))
-	step.pointer_move(Vector2(400, 500 - drag_pixels), Vector2(0, -drag_pixels))
-	# Hold the tilt while it pours.
-	for i in 900:
-		step.update(DT)
-		if view.water <= 0.0:
+## One scoop: dip to `depth` (in bucket radii), sweep across, lift back out.
+func _scoop(step: SkimStep, depth: float) -> void:
+	var centre := Vector2(200, 200)
+	var e := 100.0
+	step.pointer_down(centre + Vector2(-0.8 * e, 0.0))
+	step.pointer_move(centre + Vector2(-0.4 * e, depth * e), Vector2.ZERO)
+	step.pointer_move(centre + Vector2(0.4 * e, depth * e), Vector2.ZERO)
+	step.pointer_up(centre + Vector2(0.8 * e, -0.3 * e))
+
+
+## Always skim just inside the remaining water, as a careful vendor would.
+func _skim_carefully() -> SkimStep:
+	var step := SkimStep.new()
+	_make(step)
+	for i in 8:
+		if step.water <= 0.02:
 			break
-	step.pointer_up(Vector2.ZERO)
-	_run_until_done(step, 300)
+		_scoop(step, maxf(step.band() - 0.12, 0.12))
+		step.update(DT)
+	_run_until_done(step, 200)
 	return step
 
 
-func _test_drain_clean() -> void:
-	print("drain — careful tilt")
-	var step := _drain_with_tilt(156.0)  # ~25 degrees, below the spill angle
+func _test_skim_shallow() -> void:
+	print("skim — careful, inside the water")
+	var step := _skim_carefully()
 	_check("completes", step.complete)
-	_check("no tofu lost", is_zero_approx(step.tofu_lost), "lost=%.4f" % step.tofu_lost)
+	_check("bucket ends clean", step.water <= 0.02, "water=%.3f" % step.water)
+	_check("takes several scoops", step.scoops >= 2, "scoops=%d" % step.scoops)
+	_check("no tofu lifted", is_zero_approx(step.tofu_lost), "lost=%.4f" % step.tofu_lost)
 	_check("scores near perfect", step.score > 0.95, "score=%.3f" % step.score)
 
 
-func _test_drain_spilled() -> void:
-	print("drain — reckless tilt")
-	var clean := _drain_with_tilt(156.0)
-	var messy := _drain_with_tilt(290.0)  # past the spill angle
-	_check("completes", messy.complete)
-	_check("loses tofu", messy.tofu_lost > 0.0, "lost=%.4f" % messy.tofu_lost)
-	_check("scores worse than careful", messy.score < clean.score,
-		"messy=%.3f clean=%.3f" % [messy.score, clean.score])
+func _test_skim_too_deep() -> void:
+	print("skim — digging into the tofu")
+	var careful := _skim_carefully()
+	var step := SkimStep.new()
+	_make(step)
+	for i in 8:
+		if step.water <= 0.02:
+			break
+		_scoop(step, 1.1)  # straight to the bottom every time
+		step.update(DT)
+	_run_until_done(step, 200)
+	_check("completes", step.complete)
+	_check("lifts tofu out", step.tofu_lost > 0.0, "lost=%.4f" % step.tofu_lost)
+	_check("scores worse than careful", step.score < careful.score - 0.2,
+		"deep=%.3f careful=%.3f" % [step.score, careful.score])
+
+
+func _test_skim_needs_lifting_out() -> void:
+	print("skim — releasing without lifting out")
+	var step := SkimStep.new()
+	_make(step)
+	var centre := Vector2(200, 200)
+	step.pointer_down(centre + Vector2(-80, 0))
+	step.pointer_move(centre + Vector2(0, 40), Vector2.ZERO)
+	step.pointer_up(centre + Vector2(40, 40))  # let go still down in the bucket
+	_check("no scoop counted", step.scoops == 0)
+	_check("water untouched", is_equal_approx(step.water, 1.0), "water=%.3f" % step.water)
 
 
 # --- shave -----------------------------------------------------------------
@@ -284,7 +327,7 @@ func _test_grading() -> void:
 
 func _scored_steps(value: float) -> Array:
 	var steps: Array = [
-		DrainStep.new(), ShaveStep.new(), SagoStep.new(),
+		SkimStep.new(), ShaveStep.new(), SagoStep.new(),
 		ArnibalStep.new(), SwirlStep.new(), ServeStep.new(),
 	]
 	for step in steps:

@@ -7,7 +7,7 @@ extends RefCounted
 ## tastes matter most, and the handover is not scored at all.
 
 const WEIGHTS := {
-	"Drain the whey": 1.0,
+	"Skim the water": 1.0,
 	"Shave the tofu": 1.4,
 	"Add the sago": 1.2,
 	"Pour the arnibal": 1.5,

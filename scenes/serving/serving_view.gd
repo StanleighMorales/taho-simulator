@@ -33,6 +33,7 @@ var _cup_rest := Vector3.ZERO
 @onready var _cup: Node3D = $Cup
 @onready var _contents: MeshInstance3D = $Cup/Contents
 @onready var _sago: MultiMeshInstance3D = $Cup/Sago
+@onready var _ladle: MeshInstance3D = $Ladle
 @onready var _stream: MeshInstance3D = $PourStream
 @onready var _customer: Node3D = $Customer
 
@@ -103,7 +104,7 @@ func _start_customer() -> void:
 	_losing_tofu = false
 
 	_steps = [
-		DrainStep.new(),
+		SkimStep.new(),
 		ShaveStep.new(),
 		SagoStep.new(),
 		ArnibalStep.new(),
@@ -158,15 +159,55 @@ func set_bucket_tilt(degrees: float) -> void:
 	_bucket.rotation_degrees.z = degrees
 
 
+## The whey lies as a thin layer on top of the tofu, so skimming it visibly
+## uncovers the white tofu underneath.
 func set_bucket_water(level: float) -> void:
 	var l := maxf(level, 0.001)
-	_water.scale.y = l
-	_water.position.y = 0.02 + 0.21 * l
-	_water.visible = level > 0.005
+	# Shrink the puddle sideways as well as down. Seen from above, a receding
+	# edge reads far more clearly than a few millimetres of height, and it
+	# uncovers the white tofu around it.
+	var spread := lerpf(0.3, 1.0, l)
+	_water.scale = Vector3(spread, l, spread)
+	_water.position.y = 0.32 + 0.06 * l
+	_water.visible = level > 0.01
 
 
 func spill(is_losing: bool) -> void:
 	_losing_tofu = is_losing
+
+
+## Middle of the bucket mouth, in screen pixels.
+func bucket_screen_position() -> Vector2:
+	return _camera.unproject_position(_bucket_mouth())
+
+
+## One bucket radius, in screen pixels, so steps can work in bucket-relative
+## units and stay independent of resolution.
+func bucket_screen_extent() -> float:
+	var centre := _camera.unproject_position(_bucket_mouth())
+	var edge := _camera.unproject_position(_bucket_mouth() + Vector3(0.26, 0, 0))
+	return maxf(absf(edge.x - centre.x), 1.0)
+
+
+func _bucket_mouth() -> Vector3:
+	return _bucket.global_position + Vector3(0, 0.5, 0)
+
+
+## `u` is sideways position in bucket radii, `depth` is how far below the
+## rim the ladle is held, in the same units.
+func set_ladle(active: bool, u: float, depth: float) -> void:
+	_ladle.visible = active
+	if not active:
+		return
+	var mouth := _bucket_mouth()
+	_ladle.position = Vector3(
+		_bucket.position.x + clampf(u, -1.1, 1.1) * 0.22,
+		mouth.y - clampf(depth, -0.4, 1.3) * 0.34,
+		_bucket.position.z)
+
+
+func skim_splash() -> void:
+	_pulse = 0.7
 
 
 func set_cup_tofu(fill: float) -> void:
@@ -255,10 +296,14 @@ func return_cup() -> void:
 func _build_materials() -> void:
 	_set_material($Table, Color(0.30, 0.22, 0.17), 0.9)
 	_set_material($Bucket/Body, Color(0.76, 0.78, 0.80), 0.45)
+	_set_material($Bucket/Tofu, Color(0.96, 0.95, 0.91), 0.65)
+	# The bucket has no lid now, so its far inner wall must not be culled.
+	var body_mat: StandardMaterial3D = $Bucket/Body.get_surface_override_material(0)
+	body_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_set_material($Customer/Body, Color(0.35, 0.45, 0.62), 0.8)
 
 	var water := StandardMaterial3D.new()
-	water.albedo_color = Color(0.85, 0.89, 0.86, 0.55)
+	water.albedo_color = Color(0.56, 0.70, 0.78, 0.85)
 	water.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	water.roughness = 0.15
 	_water.set_surface_override_material(0, water)
