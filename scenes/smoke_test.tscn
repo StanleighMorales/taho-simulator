@@ -21,7 +21,7 @@ script = ExtResource("1_smoke")
 transform = Transform3D(1, 0, 0, 0, 0.966, 0.259, 0, -0.259, 0.966, 0, 1.6, 3.6)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.643, -0.766, 0, 0.766, 0.643, 0, 3, 0)
+transform = Transform3D(1, 0, 0, 0, 0.574, 0.819, 0, -0.819, 0.574, 0, 3, 0.6)
 light_energy = 1.1
 
 [node name="Cube" type="MeshInstance3D" parent="."]

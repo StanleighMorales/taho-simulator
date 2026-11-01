@@ -3,9 +3,10 @@
 A 3D browser game. You are **Lolo Ben**, an old taho vendor pushing through a Metro Manila
 neighbourhood for 7 days, saving up for his granddaughter's graduation photo package.
 
-Status: **M0 complete and live** — https://stanleighmorales.github.io/taho-simulator/
-Godot **4.7.2-stable**, Compatibility renderer, single-threaded web export, deployed
-automatically from `main` (see §10).
+Status: **M2 playable** — https://stanleighmorales.github.io/taho-simulator/
+All six serving steps work end to end with grading and payment. Godot **4.7.2-stable**,
+Compatibility renderer, single-threaded web export, deployed automatically from `main`
+(see §10 and §11).
 
 ---
 
@@ -215,7 +216,7 @@ in a browser.
 |---|---|---|
 | **M0** | Web pipeline | Spinning cube live on itch.io + GH Pages, loads on a phone. Renderer switched to Compatibility. |
 | **M1** | Roaming | Lolo Ben walks one street block carrying buckets, camera follows, placeholder boxes for buildings. |
-| **M2** | **The pour** | One customer, all six steps, grading, money awarded. *This is the make-or-break milestone — if it isn't fun here, change the minigame, not the city.* |
+| **M2** | **The pour** | ✅ Done. One customer, all six steps, grading, money awarded, on placeholder geometry. |
 | **M3** | Day cycle | Day timer, quota, evening scene, save/load, 7 days reachable with day 7 stubbed. |
 | **M4** | The city | Full street layout, NPC spawning, the "Taho po!" shout system, supplies + refill-at-home economy. |
 | **M5** | Content | Customer types, modifiers, street gags, upgrades, difficulty ramp per day. |
@@ -286,3 +287,49 @@ godot --headless --export-release "Web" build/web/index.html
 # serve locally (a Godot build cannot run from file://)
 python tools/serve_web.py
 ```
+
+---
+
+## 11. M2 — the serving minigame
+
+Built and playable. One customer at a time, six steps, graded, paid, repeat.
+
+### Code shape
+- `scenes/serving/steps/serving_step.gd` — base class. A step reads pointer gestures in
+  screen space, drives the view through method calls, and reports a 0..1 score. Steps hold
+  **no node references**, which is what makes them testable.
+- `scenes/serving/serving_view.gd` — owns every node, runs the step order, draws the HUD.
+- `scenes/serving/grading.gd` — weights the step scores into a Sarap rating, then a price.
+- `shaders/taho_contents.gdshader` — the marbling. Uses object-space XZ rather than UV so
+  it reads on both the top and the sides of a cylinder.
+- `tests/run_step_tests.gd` — 27 headless assertions, run with
+  `godot --headless --script res://tests/run_step_tests.gd`.
+
+### What the tests lock in
+Each step's *intent*, not just that it runs: careful tilting beats reckless tilting; smooth
+shaving beats jerky (0.98 vs 0.03); stopping the sago on target beats overloading; releasing
+the arnibal early beats holding too long (0.92 vs 0.08); and the swirl sweet spot beats
+over-mixing. If a tuning change breaks the *point* of a step, a test fails.
+
+### Problems found and fixed
+1. **Camera and both lights pointed the wrong way.** In a `.tscn`, Godot writes a
+   `Transform3D` basis **row by row**, not as basis vectors. Written as columns, the pitch
+   inverts — the camera stared at empty sky and the scene rendered as an empty background.
+   The same bug was in the M0 smoke test, which is why its ground was black.
+2. **Sago pearls were invisible**, buried inside the opaque tofu cylinder. They now ride on
+   the tofu surface — which is also how taho is actually served.
+3. **Contents didn't taper** with the cup, so a near-empty cup showed a disc wider than the
+   cup. Now scales in X/Z with fill.
+4. **Drain feedback contradicted itself**, showing "Clean" in the warning colour. The spill
+   warning now depends on the tilt angle alone.
+
+### Known gaps, honestly
+- **No audio at all.** The plan says the pour should be ASMR-satisfying and audio is most of
+  that. This is the single biggest thing standing between M2 and "satisfying".
+- **Feel is untuned by a human.** The numbers pass tests; nobody has yet said whether the
+  drain takes too long or the swirl is too fussy.
+- **The marbling shader has not been seen at a readable size** — only in a small automated
+  browser pane. It may need its contrast or spiral frequency adjusted.
+- **The handover looks wrong**: the cup tweens into the customer capsule rather than being
+  held. Fine on placeholder geometry, needs a hand to attach to later.
+- Placeholder geometry throughout: cylinders, a capsule customer, no Lolo Ben.

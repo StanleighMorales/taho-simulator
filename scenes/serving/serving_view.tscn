@@ -1,0 +1,201 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scenes/serving/serving_view.gd" id="1_view"]
+
+[sub_resource type="Environment" id="Env_room"]
+background_mode = 1
+background_color = Color(0.11, 0.12, 0.16, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.58, 0.68, 1)
+ambient_light_energy = 0.55
+
+[sub_resource type="BoxMesh" id="Mesh_table"]
+size = Vector3(2.6, 0.1, 1.3)
+
+[sub_resource type="CylinderMesh" id="Mesh_bucket"]
+top_radius = 0.26
+bottom_radius = 0.22
+height = 0.5
+
+[sub_resource type="CylinderMesh" id="Mesh_water"]
+top_radius = 0.235
+bottom_radius = 0.205
+height = 0.42
+
+[sub_resource type="CylinderMesh" id="Mesh_shell"]
+top_radius = 0.15
+bottom_radius = 0.11
+height = 0.3
+
+[sub_resource type="CylinderMesh" id="Mesh_contents"]
+top_radius = 0.14
+bottom_radius = 0.105
+height = 0.28
+
+[sub_resource type="SphereMesh" id="Mesh_sago"]
+radius = 0.014
+height = 0.028
+radial_segments = 6
+rings = 3
+
+[sub_resource type="CapsuleMesh" id="Mesh_customer"]
+radius = 0.19
+height = 0.95
+
+[sub_resource type="CylinderMesh" id="Mesh_stream"]
+top_radius = 0.016
+bottom_radius = 0.016
+height = 0.34
+
+[node name="ServingView" type="Node3D"]
+script = ExtResource("1_view")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_room")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.839, 0.545, 0, -0.545, 0.839, 0.12, 1.42, 2.0)
+fov = 58.0
+
+[node name="Key" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.574, 0.819, 0, -0.819, 0.574, 0, 3, 0.6)
+light_energy = 1.15
+
+[node name="Fill" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 1.1, 1.4)
+light_energy = 0.5
+omni_range = 6.0
+
+[node name="Table" type="MeshInstance3D" parent="."]
+mesh = SubResource("Mesh_table")
+
+[node name="Bucket" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.62, 0.05, 0.05)
+
+[node name="Body" type="MeshInstance3D" parent="Bucket"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+mesh = SubResource("Mesh_bucket")
+
+[node name="Water" type="MeshInstance3D" parent="Bucket"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.23, 0)
+mesh = SubResource("Mesh_water")
+
+[node name="Cup" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 0.05, 0.3)
+
+[node name="Shell" type="MeshInstance3D" parent="Cup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+mesh = SubResource("Mesh_shell")
+
+[node name="Contents" type="MeshInstance3D" parent="Cup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.14, 0)
+mesh = SubResource("Mesh_contents")
+
+[node name="Sago" type="MultiMeshInstance3D" parent="Cup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)
+
+[node name="PourStream" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 0.52, 0.3)
+mesh = SubResource("Mesh_stream")
+
+[node name="Customer" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 0, -0.45)
+
+[node name="Body" type="MeshInstance3D" parent="Customer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0)
+mesh = SubResource("Mesh_customer")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Money" type="Label" parent="UI"]
+offset_left = 20.0
+offset_top = 14.0
+offset_right = 400.0
+offset_bottom = 54.0
+theme_override_colors/font_color = Color(1, 0.93, 0.78, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.75)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 24
+
+[node name="Title" type="Label" parent="UI"]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -340.0
+offset_top = 22.0
+offset_right = 340.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="UI"]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -340.0
+offset_top = 68.0
+offset_right = 340.0
+offset_bottom = 104.0
+theme_override_colors/font_color = Color(0.88, 0.88, 0.9, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="GaugeBg" type="ColorRect" parent="UI"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -230.0
+offset_top = -92.0
+offset_right = 230.0
+offset_bottom = -58.0
+color = Color(0, 0, 0, 0.45)
+
+[node name="GaugeFill" type="ColorRect" parent="UI/GaugeBg"]
+offset_right = 10.0
+offset_bottom = 34.0
+color = Color(0.98, 0.76, 0.36, 0.95)
+
+[node name="GaugeTarget" type="ColorRect" parent="UI/GaugeBg"]
+offset_left = 100.0
+offset_top = -6.0
+offset_right = 104.0
+offset_bottom = 40.0
+color = Color(0.45, 1, 0.6, 1)
+
+[node name="Card" type="PanelContainer" parent="UI"]
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -130.0
+offset_right = 260.0
+offset_bottom = 130.0
+
+[node name="Box" type="VBoxContainer" parent="UI/Card"]
+theme_override_constants/separation = 14
+
+[node name="Grade" type="Label" parent="UI/Card/Box"]
+theme_override_font_sizes/font_size = 52
+horizontal_alignment = 1
+
+[node name="Reaction" type="Label" parent="UI/Card/Box"]
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Pay" type="Label" parent="UI/Card/Box"]
+theme_override_colors/font_color = Color(0.6, 1, 0.7, 1)
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+
+[node name="Again" type="Label" parent="UI/Card/Box"]
+theme_override_colors/font_color = Color(0.8, 0.8, 0.85, 1)
+theme_override_font_sizes/font_size = 18
+text = "tap for the next customer"
+horizontal_alignment = 1

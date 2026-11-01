@@ -13,6 +13,16 @@ See **[docs/GAME_PLAN.md](docs/GAME_PLAN.md)** for the full design and technical
 - Web export templates for 4.7.2 (installed in `%APPDATA%\Godot\export_templates\4.7.2.stable\`)
 - Python 3 (only for the local test server)
 
+## Run the tests
+
+```sh
+godot --headless --script res://tests/run_step_tests.gd
+```
+
+27 assertions covering every serving step's mechanic and the grading. They assert the
+*intent* of each step (smooth beats jerky, stopping on target beats overloading), so a
+tuning change that breaks the point of a step fails the suite.
+
 ## Build and run the web export
 
 ```sh
