@@ -2,5 +2,7 @@
 .godot/
 /android/
 
-# Build output
-/build/
+# Build output. Keep .gdignore tracked: without it Godot scans the exported
+# PNGs back in as project assets and bakes them into the next build.
+/build/*
+!/build/.gdignore
