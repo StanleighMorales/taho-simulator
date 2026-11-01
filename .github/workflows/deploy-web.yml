@@ -63,7 +63,11 @@ jobs:
           godot --headless --export-release "Web" build/web/index.html
           ls -lh build/web
 
+      # enablement: true turns Pages on via the API using the workflow token,
+      # so the repo needs no manual Pages configuration in Settings.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
