@@ -23,12 +23,23 @@ func _init() -> void:
 	title = "Pour the arnibal"
 
 
-func pointer_down(_pos: Vector2) -> void:
+func begin() -> void:
+	_view.rest_dipper()
+
+
+func pointer_down(pos: Vector2) -> void:
 	_pouring = true
+	_view.set_dipper(true, pos, 0.5)
 
 
-func pointer_up(_pos: Vector2) -> void:
+func pointer_up(pos: Vector2) -> void:
 	_pouring = false
+	_view.set_dipper(true, pos, 0.0)
+
+
+func pointer_move(pos: Vector2, _rel: Vector2) -> void:
+	# Tipped over while pouring, so the syrup has somewhere to come from.
+	_view.set_dipper(true, pos, 0.5 if _pouring else 0.0)
 
 
 func update(delta: float) -> void:

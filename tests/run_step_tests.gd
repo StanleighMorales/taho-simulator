@@ -25,6 +25,8 @@ class StubView:
 	var mix := 0.0
 	var delivered := false
 	var ladle_active := false
+	var lid_open := 0.0
+	var lid_steaming := false
 
 	func bucket_screen_position() -> Vector2:
 		return Vector2(200, 200)
@@ -37,6 +39,18 @@ class StubView:
 
 	func skim_splash() -> void:
 		pass
+
+	func set_dipper(_active: bool, _pos: Vector2, _bite := 0.0) -> void:
+		pass
+
+	func rest_dipper() -> void:
+		pass
+
+	func set_lid(open: float) -> void:
+		lid_open = open
+
+	func lid_opened() -> void:
+		lid_steaming = true
 
 	func set_bucket_tilt(v: float) -> void:
 		tilt = v
@@ -85,6 +99,7 @@ class StubView:
 
 
 func _initialize() -> void:
+	_test_lid()
 	_test_skim_shallow()
 	_test_skim_too_deep()
 	_test_skim_needs_lifting_out()
@@ -333,3 +348,46 @@ func _scored_steps(value: float) -> Array:
 	for step in steps:
 		step.score = value
 	return steps
+
+
+# --- lid -------------------------------------------------------------------
+
+## Drag upward by `radii` bucket radii, in one go.
+func _lift(step: LidStep, radii: float) -> void:
+	step.pointer_down(Vector2(200, 240))
+	# The stub reports a 100px bucket radius, and up the screen is -y.
+	step.pointer_move(Vector2(200, 240 - radii * 100.0), Vector2(0, -radii * 100.0))
+	step.pointer_up(Vector2(200, 240 - radii * 100.0))
+
+
+func _test_lid() -> void:
+	print("lid — opening the bucket")
+
+	var step := LidStep.new()
+	var view := _make(step)
+	_check("starts shut", is_equal_approx(view.lid_open, 0.0))
+
+	_lift(step, 0.5)
+	step.update(DT)
+	_check("a short pull only cracks it open",
+		view.lid_open > 0.0 and view.lid_open < 1.0, "open=%.2f" % view.lid_open)
+	_check("and does not finish the step", step.complete == false)
+
+	_lift(step, 2.0)
+	step.update(DT)
+	_check("pulling it the rest of the way opens it",
+		is_equal_approx(view.lid_open, 1.0), "open=%.2f" % view.lid_open)
+	_check("which completes the step", step.complete)
+	_check("and lets the steam out", view.lid_steaming)
+
+	# Dragging the other way is not how you lift a lid.
+	var down := LidStep.new()
+	var down_view := _make(down)
+	down.pointer_down(Vector2(200, 200))
+	down.pointer_move(Vector2(200, 400), Vector2(0, 200))
+	down.update(DT)
+	_check("dragging downward does nothing",
+		is_equal_approx(down_view.lid_open, 0.0), "open=%.2f" % down_view.lid_open)
+
+	_check("opening the lid is not graded",
+		Grading.WEIGHTS.get("Open the bucket", 1.0) == 0.0)

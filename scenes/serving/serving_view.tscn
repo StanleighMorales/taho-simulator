@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scenes/serving/serving_view.gd" id="1_view"]
 
@@ -54,6 +54,34 @@ bottom_radius = 0.125
 height = 0.022
 radial_segments = 20
 
+[sub_resource type="CylinderMesh" id="Mesh_small_bucket"]
+top_radius = 0.2
+bottom_radius = 0.17
+height = 0.34
+cap_top = false
+
+[sub_resource type="CylinderMesh" id="Mesh_compartment"]
+top_radius = 0.085
+bottom_radius = 0.075
+height = 0.26
+
+[sub_resource type="BoxMesh" id="Mesh_divider"]
+size = Vector3(0.012, 0.3, 0.34)
+
+[sub_resource type="BoxMesh" id="Mesh_cashbox"]
+size = Vector3(0.2, 0.1, 0.13)
+
+[sub_resource type="CylinderMesh" id="Mesh_lid"]
+top_radius = 0.27
+bottom_radius = 0.27
+height = 0.022
+
+[sub_resource type="CylinderMesh" id="Mesh_dipper"]
+top_radius = 0.052
+bottom_radius = 0.044
+height = 0.04
+radial_segments = 14
+
 [sub_resource type="CylinderMesh" id="Mesh_stream"]
 top_radius = 0.016
 bottom_radius = 0.016
@@ -92,9 +120,44 @@ mesh = SubResource("Mesh_bucket")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
 mesh = SubResource("Mesh_bucket_tofu")
 
+[node name="Lid" type="Node3D" parent="Bucket"]
+position = Vector3(0, 0.5, -0.26)
+
+[node name="Plate" type="MeshInstance3D" parent="Bucket/Lid"]
+position = Vector3(0, 0.011, 0.26)
+mesh = SubResource("Mesh_lid")
+
 [node name="Water" type="MeshInstance3D" parent="Bucket"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.38, 0)
 mesh = SubResource("Mesh_water")
+
+[node name="SmallBucket" type="Node3D" parent="."]
+position = Vector3(0.56, 0.05, -0.04)
+
+[node name="Body" type="MeshInstance3D" parent="SmallBucket"]
+position = Vector3(0, 0.17, 0)
+mesh = SubResource("Mesh_small_bucket")
+
+[node name="Divider" type="MeshInstance3D" parent="SmallBucket"]
+position = Vector3(0, 0.15, 0)
+mesh = SubResource("Mesh_divider")
+
+[node name="Sago" type="MeshInstance3D" parent="SmallBucket"]
+position = Vector3(-0.088, 0.13, 0)
+mesh = SubResource("Mesh_compartment")
+
+[node name="Arnibal" type="MeshInstance3D" parent="SmallBucket"]
+position = Vector3(0.088, 0.13, 0)
+mesh = SubResource("Mesh_compartment")
+
+[node name="CashBox" type="MeshInstance3D" parent="SmallBucket"]
+position = Vector3(0, 0.05, 0.3)
+mesh = SubResource("Mesh_cashbox")
+
+[node name="Dipper" type="MeshInstance3D" parent="."]
+position = Vector3(0.56, 0.52, -0.04)
+visible = false
+mesh = SubResource("Mesh_dipper")
 
 [node name="Cup" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 0.05, 0.3)
@@ -114,13 +177,17 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 0.52, 0.3)
 mesh = SubResource("Mesh_stream")
 
+[node name="Steam" type="CPUParticles3D" parent="."]
+position = Vector3(-0.62, 0.6, 0.05)
+emitting = false
+
 [node name="Ladle" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.62, 0.62, 0.05)
 visible = false
 mesh = SubResource("Mesh_ladle")
 
 [node name="Customer" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 0, -0.45)
+position = Vector3(1.12, 0, -0.52)
 
 [node name="Body" type="MeshInstance3D" parent="Customer"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0)

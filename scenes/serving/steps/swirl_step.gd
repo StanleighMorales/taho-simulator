@@ -23,15 +23,21 @@ func _init() -> void:
 	title = "Swirl it through"
 
 
+func begin() -> void:
+	_view.rest_dipper()
+
+
 func pointer_down(pos: Vector2) -> void:
 	_holding = true
 	_angle_ref = _angle_at(pos)
 	_has_ref = true
+	_view.set_dipper(true, pos, 0.6)
 
 
-func pointer_up(_pos: Vector2) -> void:
+func pointer_up(pos: Vector2) -> void:
 	_holding = false
 	_has_ref = false
+	_view.set_dipper(true, pos, 0.0)
 
 
 func pointer_move(pos: Vector2, _rel: Vector2) -> void:
@@ -47,6 +53,8 @@ func pointer_move(pos: Vector2, _rel: Vector2) -> void:
 	_angle_ref = a
 	mix += absf(d) / TAU * 0.34
 	_idle = 0.0
+	# Stirring through set tofu is work, so the dipper drags against it.
+	_view.set_dipper(true, pos, 0.6)
 	_view.set_cup_mix(mix)
 
 

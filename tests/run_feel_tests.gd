@@ -98,8 +98,8 @@ func _process(_delta: float) -> void:
 			_check("cutting through tofu lags more than moving through air",
 				_residual_wet > _residual_dry,
 				"wet=%.4f dry=%.4f" % [_residual_wet, _residual_dry])
-			_check("working the tool starts filling it", _view._ladle_load > 0.0,
-				"load=%.3f" % _view._ladle_load)
+			_check("working the tool starts filling it", _view._scoop.carried > 0.0,
+				"load=%.3f" % _view._scoop.carried)
 
 			_section("a full scoop is heavier than an empty one")
 			# Sit still and keep working, to fill the scoop up properly.
@@ -108,7 +108,7 @@ func _process(_delta: float) -> void:
 
 		5:
 			if not _poll("working it long enough fills the scoop",
-					_view._ladle_load > 0.99, "load=%.3f" % _view._ladle_load):
+					_view._scoop.carried > 0.99, "load=%.3f" % _view._scoop.carried):
 				return
 			# `_park` resets position and momentum but keeps what is in the
 			# scoop, which is the one variable under test here.
@@ -122,7 +122,7 @@ func _process(_delta: float) -> void:
 				_residual_loaded > _residual_dry,
 				"loaded=%.4f empty=%.4f" % [_residual_loaded, _residual_dry])
 			_check("the load survives the lift out of the bucket",
-				_view._ladle_load > 0.9, "load=%.3f" % _view._ladle_load)
+				_view._scoop.carried > 0.9, "load=%.3f" % _view._scoop.carried)
 
 			_section("it leans into the turn")
 			_check("a tool moving right leans its leading edge up",
@@ -140,13 +140,22 @@ func _process(_delta: float) -> void:
 
 		8:
 			if not _poll("the scoop is light again after it is tipped out",
-					_view._ladle_load < 0.01, "load=%.3f" % _view._ladle_load):
+					_view._scoop.carried < 0.01, "load=%.3f" % _view._scoop.carried):
 				return
 
-			_section("putting it down")
+			_section("the two tools feel different")
 			_view.set_ladle(false, 0.0, 0.0)
-			_check("the tool is out of sight when no step is holding it",
+			_check("the scoop is out of sight when no step is holding it",
 				_ladle.visible == false)
+			# A thin dipper with a spoonful of syrup in it has no business
+			# feeling like a scoop full of tofu. If these two ever converge,
+			# carrying both has stopped meaning anything.
+			_check("the dipper is quicker than the scoop in the hand",
+				_view._dipper.smooth < _view._scoop.smooth,
+				"dipper=%.3fs scoop=%.3fs" % [_view._dipper.smooth, _view._scoop.smooth])
+			_check("and lighter when it is full",
+				_view._dipper.load_drag < _view._scoop.load_drag,
+				"dipper=%.3f scoop=%.3f" % [_view._dipper.load_drag, _view._scoop.load_drag])
 			_report()
 			return
 

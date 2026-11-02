@@ -189,7 +189,7 @@ Replace the bucket's tofu cylinder with a **heightfield** — a modest grid, 16�
 
 This is the expensive one. It is also the one that turns "gesture" into "material".
 
-### 3. Two buckets, two tools, one lid
+### 3. Two buckets, two tools, one lid — ✅ **done, 2026-11-03**
 Straight accuracy, and each piece adds a verb.
 
 - **Open the lid** to start the order. One drag. It is the moment the steam comes out, it
@@ -201,7 +201,34 @@ Straight accuracy, and each piece adds a verb.
 - **Reaching into the small bucket for the sago** is more hands-on than sago appearing in
   the cup because you tapped.
 
-### 4. Connect the bucket to the inventory
+**What shipped.** The table now holds both buckets: the big one is tofu and a hinged lid,
+the small one has sago and arnibal in their own compartments and the cash box sitting in
+front of it. Opening the lid is a new step 0 — one upward drag, ungraded on purpose
+(`Grading.WEIGHTS` gives it 0.0, because opening a lid is not a skill and scoring it would
+only add noise) — and it is the moment the steam comes out, which is the only way the
+player learns the taho is warm. The weight work from item 1 moved into a `ToolBody` class
+so there can be two tools with different numbers: the wide scoop for steps 1–2, and a thin
+dipper for the sago, the arnibal and the swirl, which is quicker in the hand and barely
+weighs anything full. The pour stream now falls from wherever the dipper is instead of
+from a fixed spout, and the small bucket's two levels are read from `GameState`, so a heavy
+hand on one customer is visible to the next.
+
+**What building it turned up:**
+- **Steps 3, 4 and 5 had no tool on screen at all** — the same gap the shave step had
+  before item 1. You were adding sago, pouring syrup and stirring with an invisible hand.
+- **`amount_ratio` is GPU-particles only.** The steam is CPU particles, because those are
+  the ones certain to work in Compatibility on the web, so the intended burst-then-settle
+  is not available — changing `amount` restarts the system and pops. It is a steady wisp
+  for now; a proper burst wants a second one-shot emitter.
+- **Billboarded flat cards render wrong as CPU particles** here — one came out as an
+  opaque black square. A six-segment sphere costs nothing at twelve particles and has no
+  orientation to get wrong.
+- **A lid stopped anywhere near upright is a 27cm disc across the camera.** It has to fold
+  right back behind the bucket, which is also what a hinged lid does.
+
+### 4. Connect the big bucket to the inventory
+*(The small bucket's sago and arnibal already do this, as of item 3. What is left is the
+tofu.)*
 `set_bucket_water` / the tofu level should read from `GameState.tofu`, not reset per
 customer. Twelve cups out of a load means the surface is visibly lower on cup 11 than on
 cup 2, and the refill at home becomes something you can *see* the need for rather than

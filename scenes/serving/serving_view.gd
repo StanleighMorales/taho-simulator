@@ -19,18 +19,118 @@ signal order_finished(pay: int, sago_used: float, arnibal_used: float)
 
 const TABLE_Y := 0.05
 
-## How the tools behave.
+## Height the dipper is held at while it works between the small bucket and
+## the cup. Clear of the cup rim, so the tool reads as held above the cup
+## rather than sunk into it.
+const DIPPER_Y := 0.52
+
+
+## One tool in the hand.
 ##
-## The pointer sets a *target*; the tool chases it. The gap between the two is
-## the entire point. A tool that arrives exactly where the pointer is, exactly
-## when the pointer gets there, is a cursor — there is nothing between the
-## hand and the result, so there is nothing to feel. Lag, lean and load are
-## what make it read as something you are holding.
-const LADLE_SMOOTH := 0.055
-const LADLE_DRAG := 0.10
-const LADLE_LOAD_DRAG := 0.07
-const LADLE_TILT_SMOOTH := 0.08
-const LADLE_TILT_MAX := 24.0
+## Owns the gap between the pointer and the thing: lag, lean and load. The
+## pointer sets a target and the tool chases it, and that gap is the entire
+## point — a tool that arrives exactly where the pointer is, exactly when the
+## pointer gets there, is a cursor, and there is nothing to feel.
+##
+## There are two tools on the table and they are meant to feel different: a
+## wide scoop heavy with tofu is not a thin dipper holding a spoonful of
+## syrup. So the behaviour lives here once and the numbers live per instance.
+class ToolBody:
+	extends RefCounted
+
+	## Seconds to settle while moving through air.
+	var smooth := 0.055
+	## Added on top while cutting through material.
+	var drag := 0.10
+	## Added on top at a full load.
+	var load_drag := 0.07
+	## How fast working the tool fills it.
+	var fill_rate := 1.6
+	## Degrees of lean per unit of sideways speed, and the cap.
+	var lean_rate := 7.0
+	var lean_max := 24.0
+	var lean_smooth := 0.08
+
+	var node: Node3D
+	var active := false
+	## 0..1 of a full tool. A loaded tool is slower to turn and slower to stop.
+	var carried := 0.0
+	## How much material it is working through right now, as the step sees it.
+	var bite := 0.0
+	var dumping := false
+
+	var _target := Vector3.ZERO
+	var _vel := Vector3.ZERO
+	var _lean := 0.0
+	var _lean_vel := 0.0
+
+	func _init(for_node: Node3D) -> void:
+		node = for_node
+
+	## Point the tool at a local position. `hardness` is how much material it
+	## is cutting through, 0..1.
+	func aim(at: Vector3, hardness: float) -> void:
+		bite = clampf(hardness, 0.0, 1.0)
+		_target = at
+		if active:
+			return
+		# The first frame of a stroke starts under the hand, not wherever the
+		# last stroke happened to end.
+		active = true
+		node.visible = true
+		node.position = at
+		_vel = Vector3.ZERO
+		_lean = 0.0
+		_lean_vel = 0.0
+
+	func put_down() -> void:
+		active = false
+		bite = 0.0
+		node.visible = false
+
+	## Tipped out, so it is light again.
+	func empty() -> void:
+		dumping = true
+
+	## `submerged` is the view's business — only it knows where the liquid is.
+	func update(delta: float, submerged: bool) -> void:
+		if not active:
+			carried = move_toward(carried, 0.0, delta * 4.0)
+			return
+
+		var resistance := maxf(bite, 1.0 if submerged else 0.0)
+		var settle := smooth + resistance * drag + carried * load_drag
+		var sprung := _damp(node.position, _target, _vel, settle, delta)
+		node.position = sprung[0]
+		_vel = sprung[1]
+
+		if resistance > 0.0:
+			dumping = false
+			carried = minf(1.0, carried + delta * fill_rate * resistance)
+		elif dumping:
+			carried = move_toward(carried, 0.0, delta * 4.0)
+
+		# Leading edge up, so the tool planes through the material rather than
+		# ploughing into it.
+		var want := clampf(_vel.x * lean_rate, -lean_max, lean_max)
+		want *= 1.0 + resistance * 0.5 + carried * 0.4
+		var tilt := _damp(Vector3(_lean, 0, 0), Vector3(want, 0, 0),
+			Vector3(_lean_vel, 0, 0), lean_smooth, delta)
+		_lean = tilt[0].x
+		_lean_vel = tilt[1].x
+		node.rotation_degrees.z = _lean
+
+	## Critically damped spring, returning [position, velocity]. The closed
+	## form rather than a naive spring, because this has to stay stable on a
+	## browser frame that occasionally takes 40ms.
+	static func _damp(current: Vector3, target: Vector3, vel: Vector3,
+			smooth_time: float, delta: float) -> Array:
+		var omega := 2.0 / maxf(smooth_time, 0.0001)
+		var x := omega * delta
+		var decay := 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x)
+		var change := current - target
+		var temp := (vel + change * omega) * delta
+		return [target + (change + temp) * decay, (vel - temp * omega) * decay]
 
 ## False when the town owns the flow.
 @export var standalone := true
@@ -48,17 +148,11 @@ var _last_pay := 0
 var _pulse := 0.0
 var _losing_tofu := false
 
-var _ladle_active := false
-var _ladle_target := Vector3.ZERO
-var _ladle_vel := Vector3.ZERO
-var _ladle_tilt := 0.0
-var _ladle_tilt_vel := 0.0
-## 0..1 of a full scoop. A loaded tool is slower to turn and slower to stop.
-var _ladle_load := 0.0
-## How much material the tool is cutting through right now, as the step sees
-## it. Liquid the view works out for itself; tofu only the step knows about.
-var _ladle_bite := 0.0
-var _ladle_dumping := false
+## The wide flat scoop for the tofu, and the thin small-bowled dipper for the
+## sago and the arnibal. Two tools is what a vendor actually carries, and it
+## is also why reaching for the right one reads as work.
+var _scoop: ToolBody
+var _dipper: ToolBody
 
 var _tofu_fill := 0.0
 var _contents_mat: ShaderMaterial
@@ -71,6 +165,12 @@ var _cup_rest := Vector3.ZERO
 @onready var _contents: MeshInstance3D = $Cup/Contents
 @onready var _sago: MultiMeshInstance3D = $Cup/Sago
 @onready var _ladle: MeshInstance3D = $Ladle
+@onready var _dipper_node: MeshInstance3D = $Dipper
+@onready var _small: Node3D = $SmallBucket
+@onready var _small_sago: MeshInstance3D = $SmallBucket/Sago
+@onready var _small_arnibal: MeshInstance3D = $SmallBucket/Arnibal
+@onready var _lid: Node3D = $Bucket/Lid
+@onready var _steam: CPUParticles3D = $Steam
 @onready var _stream: MeshInstance3D = $PourStream
 @onready var _customer: Node3D = $Customer
 
@@ -92,7 +192,7 @@ func _ready() -> void:
 	_cup_rest = _cup.position
 	_build_materials()
 	_build_sago()
-	_build_ladle()
+	_build_tools()
 	if standalone:
 		_card_again.text = "tap for the next customer"
 		begin_order()
@@ -107,7 +207,7 @@ func _process(delta: float) -> void:
 		var s := 1.0 + _pulse * 0.06
 		_cup.scale = Vector3(s, 1.0 + _pulse * 0.1, s)
 
-	_update_ladle(delta)
+	_update_tools(delta)
 
 	if _finished or _active == null:
 		return
@@ -197,6 +297,7 @@ func _start_customer() -> void:
 	_losing_tofu = false
 
 	_steps = [
+		LidStep.new(),
 		SkimStep.new(),
 		ShaveStep.new(),
 		SagoStep.new(),
@@ -215,7 +316,7 @@ func _activate(index: int) -> void:
 	_index = index
 	_active = _steps[index]
 	_active.begin()
-	_ui_title.text = "%d/6  %s" % [index + 1, _active.title]
+	_ui_title.text = "%d/%d  %s" % [index + 1, _steps.size(), _active.title]
 	_refresh_hud()
 
 
@@ -290,70 +391,55 @@ func _bucket_mouth() -> Vector3:
 
 
 ## `u` is sideways position in bucket radii, `depth` is how far below the rim
-## the ladle is held, in the same units, and `bite` is how much material the
-## tool is working through, 0..1.
+## the scoop is held, in the same units, and `bite` is how much material it is
+## working through, 0..1.
 ##
-## This sets a target. The tool gets there in `_update_ladle`, late.
+## This sets a target. The tool gets there in `_update_tools`, late.
 func set_ladle(active: bool, u: float, depth: float, bite := 0.0) -> void:
-	_ladle_bite = clampf(bite, 0.0, 1.0)
 	if not active:
-		_ladle_active = false
-		_ladle.visible = false
+		_scoop.put_down()
 		return
 
 	# Local space throughout. The view is instanced into the town, so a global
-	# y written into a local position puts the ladle somewhere under the map —
+	# y written into a local position puts the scoop somewhere under the map —
 	# which is exactly what the old `mouth.y` here did once it was embedded.
 	var mouth_y := _bucket.position.y + 0.5
-	_ladle_target = Vector3(
-		# Tighter than the bucket radius: the scoop is wide now, so the full
-		# reach would hang it most of the way off the rim.
+	_scoop.aim(Vector3(
+		# Tighter than the bucket radius: the scoop is wide, so the full reach
+		# would hang it most of the way off the rim.
 		_bucket.position.x + clampf(u, -1.1, 1.1) * 0.16,
 		mouth_y - clampf(depth, -0.4, 1.3) * 0.34,
-		_bucket.position.z)
-
-	if not _ladle_active:
-		# First frame of a stroke starts under the hand, not wherever the last
-		# stroke happened to end.
-		_ladle_active = true
-		_ladle.visible = true
-		_ladle.position = _ladle_target
-		_ladle_vel = Vector3.ZERO
-		_ladle_tilt = 0.0
-		_ladle_tilt_vel = 0.0
+		_bucket.position.z), bite)
 
 
-## The tool chases the hand instead of being the hand: it arrives late, leans
-## into the turn, drags when it is in the liquid, and gets heavier as it
-## fills, so lifting a full scoop out costs more than dipping an empty one in.
-func _update_ladle(delta: float) -> void:
-	if not _ladle_active:
-		_ladle_load = move_toward(_ladle_load, 0.0, delta * 4.0)
+## The dipper works between the small bucket and the cup, so it is aimed in
+## screen space — which is what the steps already have — rather than in units
+## relative to one container.
+func set_dipper(active: bool, screen_pos: Vector2, bite := 0.0) -> void:
+	if not active:
+		_dipper.put_down()
 		return
+	var at := _plane_point(screen_pos, DIPPER_Y)
+	if at == Vector3.INF:
+		return
+	# Keep it over the table, so a stray drag cannot fling it into the sky.
+	_dipper.aim(Vector3(clampf(at.x, -1.2, 1.2), DIPPER_Y, clampf(at.z, -0.6, 0.6)),
+		bite)
 
-	var submerged: bool = _water.visible and _ladle.global_position.y < _water_surface_y()
-	var resistance := maxf(_ladle_bite, 1.0 if submerged else 0.0)
 
-	var smooth := LADLE_SMOOTH + resistance * LADLE_DRAG + _ladle_load * LADLE_LOAD_DRAG
-	var sprung := _damp(_ladle.position, _ladle_target, _ladle_vel, smooth, delta)
-	_ladle.position = sprung[0]
-	_ladle_vel = sprung[1]
+## Pick the dipper up and hold it over its own bucket, before the first
+## gesture of a step that uses it.
+func rest_dipper() -> void:
+	_dipper.aim(Vector3(_small.position.x, DIPPER_Y, _small.position.z), 0.0)
 
-	if resistance > 0.0:
-		_ladle_dumping = false
-		_ladle_load = minf(1.0, _ladle_load + delta * 1.6 * resistance)
-	elif _ladle_dumping:
-		_ladle_load = move_toward(_ladle_load, 0.0, delta * 4.0)
 
-	# Leading edge up, so the tool planes through the material rather than
-	# ploughing into it.
-	var lean := clampf(_ladle_vel.x * 7.0, -LADLE_TILT_MAX, LADLE_TILT_MAX)
-	lean *= 1.0 + resistance * 0.5 + _ladle_load * 0.4
-	var tilt := _damp(Vector3(_ladle_tilt, 0, 0), Vector3(lean, 0, 0),
-		Vector3(_ladle_tilt_vel, 0, 0), LADLE_TILT_SMOOTH, delta)
-	_ladle_tilt = tilt[0].x
-	_ladle_tilt_vel = tilt[1].x
-	_ladle.rotation_degrees.z = _ladle_tilt
+func _update_tools(delta: float) -> void:
+	_scoop.update(delta, _water.visible and _ladle.global_position.y < _water_surface_y())
+	_dipper.update(delta, false)
+	# The syrup falls from wherever the dipper is, not from a fixed spout.
+	if _dipper.active:
+		_stream.position.x = _dipper_node.position.x
+		_stream.position.z = _dipper_node.position.z
 
 
 ## Top of the water in world space. The mesh is a 0.12-high cylinder scaled by
@@ -362,23 +448,43 @@ func _water_surface_y() -> float:
 	return _water.global_position.y + _water.scale.y * 0.06
 
 
-## Critically damped spring, returning [position, velocity]. The closed form
-## rather than a naive spring, because this has to stay stable on a browser
-## frame that occasionally takes 40ms.
-func _damp(current: Vector3, target: Vector3, vel: Vector3, smooth_time: float,
-		delta: float) -> Array:
-	var omega := 2.0 / maxf(smooth_time, 0.0001)
-	var x := omega * delta
-	var decay := 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x)
-	var change := current - target
-	var temp := (vel + change * omega) * delta
-	return [target + (change + temp) * decay, (vel - temp * omega) * decay]
+## Where a screen ray lands on a horizontal plane at local height `y`, in
+## local space — which is what node positions want. Returns Vector3.INF when
+## the ray never gets there.
+func _plane_point(screen_pos: Vector2, y: float) -> Vector3:
+	var from := _camera.project_ray_origin(screen_pos)
+	var dir := _camera.project_ray_normal(screen_pos)
+	if absf(dir.y) < 0.001:
+		return Vector3.INF
+	var t := (global_position.y + y - from.y) / dir.y
+	if t <= 0.0:
+		return Vector3.INF
+	return to_local(from + dir * t)
+
+
+## How far the lid is swung back, 0 shut to 1 wide open.
+##
+## It folds right back to lie behind the bucket. Stopping it anywhere near
+## upright leaves a 27cm disc facing the camera, square across the thing the
+## player is supposed to be looking into.
+func set_lid(open: float) -> void:
+	_lid.rotation_degrees.x = -165.0 * clampf(open, 0.0, 1.0)
+
+
+## The moment the bucket is opened: warm taho, so it steams.
+##
+## A steady wisp rather than a burst that settles. `amount_ratio` is a GPU
+## particles property, and changing `amount` on CPU particles restarts the
+## system, which pops — so the burst can wait for a second emitter.
+func lid_opened() -> void:
+	_steam.restart()
+	_steam.emitting = true
 
 
 func skim_splash() -> void:
 	_pulse = 0.7
 	# Lifted clear and tipped out: the scoop is light again.
-	_ladle_dumping = true
+	_scoop.empty()
 
 
 func set_cup_tofu(fill: float) -> void:
@@ -437,15 +543,10 @@ func customer_screen_position() -> Vector2:
 
 
 func drag_cup_to(screen_pos: Vector2) -> void:
-	var from := _camera.project_ray_origin(screen_pos)
-	var dir := _camera.project_ray_normal(screen_pos)
-	# Intersect the plane the cup slides on, so dragging tracks the pointer.
-	if absf(dir.y) < 0.001:
+	# The plane the cup slides on, so dragging tracks the pointer.
+	var hit := _plane_point(screen_pos, TABLE_Y + 0.15)
+	if hit == Vector3.INF:
 		return
-	var t := (TABLE_Y + 0.15 - from.y) / dir.y
-	if t <= 0.0:
-		return
-	var hit := from + dir * t
 	_cup.position = Vector3(hit.x, _cup_rest.y + 0.08, hit.z)
 
 
@@ -472,6 +573,17 @@ func _build_materials() -> void:
 	var body_mat: StandardMaterial3D = $Bucket/Body.get_surface_override_material(0)
 	body_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_set_material($Customer/Body, Color(0.35, 0.45, 0.62), 0.8)
+
+	# The second bucket: sago and arnibal in their own compartments, and the
+	# cash box, which is where a vendor actually keeps it.
+	_set_material($SmallBucket/Body, Color(0.72, 0.74, 0.77), 0.45)
+	var small_mat: StandardMaterial3D = $SmallBucket/Body.get_surface_override_material(0)
+	small_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_set_material($SmallBucket/Divider, Color(0.62, 0.64, 0.66), 0.5)
+	_set_material($SmallBucket/Sago, Color(0.24, 0.16, 0.11), 0.4)
+	_set_material($SmallBucket/Arnibal, Color(0.33, 0.16, 0.05), 0.2)
+	_set_material($SmallBucket/CashBox, Color(0.30, 0.24, 0.18), 0.75)
+	_set_material($Bucket/Lid/Plate, Color(0.78, 0.80, 0.83), 0.4)
 
 	var water := StandardMaterial3D.new()
 	water.albedo_color = Color(0.56, 0.70, 0.78, 0.85)
@@ -504,29 +616,114 @@ func _set_material(node: MeshInstance3D, color: Color, roughness: float) -> void
 	node.set_surface_override_material(0, mat)
 
 
-## The scoop gets a handle, and the handle is the point: a bare disc barely
-## shows which way it is leaning, so all the weight in `_update_ladle` would
-## be invisible. A handle turns a few degrees of tilt into a shape the eye
-## reads immediately.
-func _build_ladle() -> void:
+## Both tools, and the steam.
+##
+## Each gets a handle, and the handle is the point: a bare disc barely shows
+## which way it is leaning, so all the weight in `ToolBody` would be
+## invisible. A handle turns a few degrees of tilt into a shape the eye reads
+## at once.
+func _build_tools() -> void:
 	var metal := StandardMaterial3D.new()
 	metal.albedo_color = Color(0.80, 0.82, 0.85)
 	metal.metallic = 0.4
 	metal.roughness = 0.35
+
 	_ladle.set_surface_override_material(0, metal)
+	_handle(_ladle, Vector3(0.0, 0.055, 0.21), Vector3(0.022, 0.022, 0.36), -17.0)
+	_scoop = ToolBody.new(_ladle)
 
+	# The dipper is thin, small-bowled and barely weighs anything even full.
+	# It should feel quick in the hand next to the scoop — that difference is
+	# the reason for carrying two tools rather than one.
+	_dipper_node.set_surface_override_material(0, metal)
+	_handle(_dipper_node, Vector3(0.0, 0.075, 0.19), Vector3(0.016, 0.016, 0.34), -26.0)
+	_dipper = ToolBody.new(_dipper_node)
+	_dipper.smooth = 0.035
+	_dipper.drag = 0.05
+	_dipper.load_drag = 0.02
+	_dipper.fill_rate = 3.0
+	_dipper.lean_rate = 5.0
+	_dipper.lean_max = 16.0
+
+	_scoop.put_down()
+	_dipper.put_down()
+	_build_steam()
+
+
+func _handle(tool_node: MeshInstance3D, at: Vector3, size: Vector3, pitch: float) -> void:
 	var shaft := BoxMesh.new()
-	shaft.size = Vector3(0.022, 0.022, 0.36)
-
+	shaft.size = size
 	var handle := MeshInstance3D.new()
 	handle.name = "Handle"
 	handle.mesh = shaft
-	handle.position = Vector3(0.0, 0.055, 0.21)
-	handle.rotation_degrees = Vector3(-17.0, 0.0, 0.0)
-	handle.material_override = StandardMaterial3D.new()
-	handle.material_override.albedo_color = Color(0.34, 0.26, 0.19)
-	handle.material_override.roughness = 0.8
-	_ladle.add_child(handle)
+	handle.position = at
+	handle.rotation_degrees = Vector3(pitch, 0.0, 0.0)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.34, 0.26, 0.19)
+	wood.roughness = 0.8
+	handle.material_override = wood
+	tool_node.add_child(handle)
+
+
+## Taho is served warm, and steam off the open bucket is most of what warm
+## means to a player. CPU particles rather than GPU: they are the ones that
+## are certain to work in the Compatibility renderer on the web.
+func _build_steam() -> void:
+	# A little sphere rather than a billboarded flat card. Billboarding and
+	# particles need the BILLBOARD_PARTICLES path and its anim frames to
+	# behave, and at twelve particles a six-segment sphere costs nothing and
+	# looks the same from every angle.
+	var puff := SphereMesh.new()
+	puff.radius = 0.035
+	puff.height = 0.07
+	puff.radial_segments = 6
+	puff.rings = 3
+
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_color = Color(1, 1, 1, 1)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	puff.material = mat
+
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 0.0))
+	ramp.set_color(1, Color(1, 1, 1, 0.0))
+	ramp.add_point(0.22, Color(1, 1, 1, 0.17))
+
+	_steam.mesh = puff
+	_steam.amount = 12
+	_steam.lifetime = 2.0
+	_steam.direction = Vector3(0, 1, 0)
+	_steam.spread = 22.0
+	_steam.initial_velocity_min = 0.2
+	_steam.initial_velocity_max = 0.42
+	_steam.gravity = Vector3(0, 0.14, 0)
+	_steam.scale_amount_min = 0.35
+	_steam.scale_amount_max = 0.9
+	_steam.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	_steam.emission_sphere_radius = 0.14
+	_steam.color_ramp = ramp
+	# Back to front, or a dozen overlapping alpha quads stack into a solid
+	# white ball instead of a wisp.
+	_steam.draw_order = CPUParticles3D.DRAW_ORDER_VIEW_DEPTH
+	_steam.emitting = false
+
+
+## The small bucket shows what is actually left of the day's sago and
+## arnibal, so a heavy hand on this customer is visible to the next one.
+func _refresh_small_bucket() -> void:
+	_set_compartment(_small_sago, float(GameState.sago) / float(GameState.LOAD_SIZE))
+	_set_compartment(_small_arnibal, float(GameState.arnibal) / float(GameState.LOAD_SIZE))
+
+
+func _set_compartment(node: MeshInstance3D, level: float) -> void:
+	var l := clampf(level, 0.06, 1.0)
+	node.scale.y = l
+	# The compartment is a 0.26-high cylinder sitting on the bucket floor, so
+	# it has to drop as it shrinks rather than shrinking about its middle.
+	node.position.y = 0.13 * l
 
 
 func _build_sago() -> void:
@@ -568,9 +765,15 @@ func _reset_visuals() -> void:
 	set_cup_mix(0.0)
 	pour_stream(0.0)
 	set_ladle(false, 0.0, 0.0)
-	_ladle_load = 0.0
-	_ladle_dumping = false
+	set_dipper(false, Vector2.ZERO)
+	_scoop.carried = 0.0
+	_scoop.dumping = false
+	_dipper.carried = 0.0
 	_ladle.rotation_degrees.z = 0.0
+	_dipper_node.rotation_degrees.z = 0.0
+	set_lid(0.0)
+	_steam.emitting = false
+	_refresh_small_bucket()
 	_cup.position = _cup_rest
 	_cup.scale = Vector3.ONE
 	_gauge_bg.visible = true

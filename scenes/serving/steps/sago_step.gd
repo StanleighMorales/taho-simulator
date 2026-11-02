@@ -20,12 +20,26 @@ func _init() -> void:
 	title = "Add the sago"
 
 
-func pointer_down(_pos: Vector2) -> void:
+func begin() -> void:
+	# Swap tools: the pearls come out of the small bucket on the thin dipper,
+	# not on the wide scoop the tofu was shaved with.
+	_view.set_ladle(false, 0.0, 0.0)
+	_view.rest_dipper()
+
+
+func pointer_down(pos: Vector2) -> void:
 	amount += PER_SCOOP * randf_range(0.9, 1.1)
 	_scoops += 1
 	_idle = 0.0
+	_view.set_dipper(true, pos, 0.8)
 	_view.set_cup_sago(minf(amount, 1.0))
 	_view.sago_plop()
+
+
+func pointer_move(pos: Vector2, _rel: Vector2) -> void:
+	# The dipper tracks the hand between taps, so the tool is a thing being
+	# carried rather than something that blinks in where it is needed.
+	_view.set_dipper(true, pos, 0.0)
 
 
 func update(delta: float) -> void:

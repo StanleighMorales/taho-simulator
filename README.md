@@ -34,11 +34,11 @@ godot --headless res://tests/town_tests.tscn
 godot --headless res://tests/feel_tests.tscn
 ```
 
-The first is 31 assertions covering every serving step's mechanic and the grading. They
+The first is 39 assertions covering every serving step's mechanic and the grading. They
 assert the *intent* of each step (smooth beats jerky, stopping on target beats
 overloading), so a tuning change that breaks the point of a step fails the suite.
 
-The third is 13 assertions on how the tools *feel* — that the ladle lags the hand,
+The third is 15 assertions on how the tools *feel* — that the ladle lags the hand,
 drags in material, gets heavier as it fills and leans into the turn. Each one compares two
 runs of the same movement rather than pinning a number, so tuning stays free to move while
 the intent does not.

@@ -14,6 +14,11 @@ func _init() -> void:
 	title = "Serve it"
 
 
+func begin() -> void:
+	# Both hands on the cup now.
+	_view.set_dipper(false, Vector2.ZERO)
+
+
 func pointer_down(pos: Vector2) -> void:
 	if _view.cup_screen_position().distance_to(pos) < 160.0:
 		_holding = true
