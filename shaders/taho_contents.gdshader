@@ -15,6 +15,13 @@ uniform float arnibal_amount : hint_range(0.0, 1.0) = 0.0;
 // 0..~1.2 how thoroughly it has been swirled. Past ~1.0 it goes flat brown.
 uniform float mix_amount : hint_range(0.0, 1.5) = 0.0;
 
+// How many separate sheets of tofu were laid in. Taho is shaved in thin
+// layers, and the stack of them is the most recognisable image of the stuff,
+// so the sides are banded to show it. Swirling blurs the bands away, because
+// by then it is no longer a stack.
+uniform float sheets = 0.0;
+uniform float cup_height = 0.28;
+
 varying vec3 obj_pos;
 
 void vertex() {
@@ -39,6 +46,17 @@ void fragment() {
 	float flat_mix = smoothstep(0.7, 1.15, mix_amount);
 	float f = mix(marbled, arnibal_amount * 0.85, flat_mix);
 
-	ALBEDO = mix(tofu_color, arnibal_color, clamp(f, 0.0, 1.0));
+	vec3 albedo = mix(tofu_color, arnibal_color, clamp(f, 0.0, 1.0));
+
+	if (sheets > 0.5) {
+		float up = obj_pos.y / cup_height + 0.5;
+		float band = abs(fract(up * sheets) - 0.5) * 2.0;
+		// Only the seam between sheets darkens, and only on the sides — the
+		// top of the cup is one continuous surface.
+		float seam = (1.0 - smoothstep(0.0, 0.35, band)) * smoothstep(0.55, 0.95, r);
+		albedo *= 1.0 - 0.16 * seam * (1.0 - smoothstep(0.0, 0.6, mix_amount));
+	}
+
+	ALBEDO = albedo;
 	ROUGHNESS = mix(0.55, 0.8, f);
 }

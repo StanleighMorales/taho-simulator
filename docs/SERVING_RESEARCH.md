@@ -120,7 +120,8 @@ having it. The useful framing from diegetic-UI writing is: **list every piece of
 information the player needs and ask where it would live in the fiction.** Then put it
 there, and let the HUD fade as the player stops needing it.
 
-- Fill level → the cup is transparent. It is already visible. Delete that gauge.
+- Fill level → the cup is transparent, and since item 2 it also shows the stack of
+  sheets. Already visible. Delete that gauge.
 - Sago amount → the pearls are visible on the surface. Delete that gauge.
 - Arnibal level → the colour of the stream and the darkening of the cup.
 - Swirl → the marbling shader *is* the gauge. This is the one that most obviously should
@@ -175,7 +176,7 @@ up, the way a ladle planes rather than ploughs, and comes level when it stops.
   handle — which is what the vendor accounts describe anyway — and the handle is what
   makes the lean legible.
 
-### 2. Make the tofu a surface, not a cylinder
+### 2. Make the tofu a surface, not a cylinder — ✅ **done, 2026-11-03**
 Replace the bucket's tofu cylinder with a **heightfield** — a modest grid, 16×16 is plenty
 — that the scoop actually lowers where it passes.
 
@@ -188,6 +189,43 @@ Replace the bucket's tofu cylinder with a **heightfield** — a modest grid, 16�
   measure of a good vendor than frame-to-frame jerk, and it is one the player can see.
 
 This is the expensive one. It is also the one that turns "gesture" into "material".
+
+**What shipped.** `scenes/serving/tofu_surface.gd` is the tofu: a profile across the
+bucket that remembers where the blade has been. The cup fills with what the scoop
+actually lifted, so `fill` is no longer a number that goes up when you wave the pointer.
+
+**One dimension, not two.** The gesture that shaves tofu is a sideways sweep with no depth
+component at all, so the surface is a profile across the bucket extruded front to back.
+Modelling an axis the player cannot address would have cost work and bought nothing.
+
+**The rule that makes it a place rather than a meter:** a flat blade rides the high
+points, so it cannot cut more than one layer below the *highest* part of the surface. It
+cannot dig a well. Grinding one groove stops paying almost immediately — 600 frames of it
+fills a tenth of a cup — and the only way to keep taking tofu is to work the whole bucket
+down together. That is a **constraint, not a score**: the player cannot fill a cup badly,
+only slowly. Better than grading evenness, which was the original plan here.
+
+Digging into the tofu in step 1 now `gouge`s it instead, which is the opposite rule on
+purpose — that is a bite out of the block, and the dent is still there to shave around.
+
+The cup shows the layers. Each reversal of the sweep lays a sheet, and the contents shader
+bands the sides so the stack reads through the cup wall — the most recognisable image of
+taho, and the game had no version of it.
+
+**Four things building it turned up:**
+- **Godot wants clockwise winding for a front face.** Built the other way, every face is
+  inside out: you see straight through the top of the block at the inside of the far wall,
+  which looks exactly like an empty bucket. The supplied normals were right the whole
+  time, so lighting gave no clue.
+- **The camera could not see into the bucket at all.** This was written down as a known
+  gap under item 1 and not acted on, and it would have wasted this entire item — a surface
+  nobody can see is worth nothing. Two causes, both fixed: the block sat low in a deep
+  bucket, when a full bucket is full nearly to the rim, and the camera was too shallow.
+  It is now pitched at 40° instead of 33°.
+- **Swapping a mesh clears its surface override materials.** The block is regenerated as
+  it is carved, so its material has to be a `material_override`.
+- **The block has to taper like the bucket does.** Straight-sided, its lower half pokes
+  out through the bucket wall as a white band.
 
 ### 3. Two buckets, two tools, one lid — ✅ **done, 2026-11-03**
 Straight accuracy, and each piece adds a verb.

@@ -86,7 +86,10 @@ func pointer_up(pos: Vector2) -> void:
 	water = maxf(0.0, water - SCOOP_VOLUME * fullness)
 
 	if _deepest > water_depth:
-		tofu_lost += (_deepest - water_depth) * TOFU_PENALTY
+		var dug := _deepest - water_depth
+		tofu_lost += dug * TOFU_PENALTY
+		# And it leaves a dent, which is still there to shave around later.
+		_view.gouge_tofu(_last_u, dug * 0.25)
 
 	_view.set_bucket_water(water)
 	_view.skim_splash()

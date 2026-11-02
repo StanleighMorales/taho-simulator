@@ -34,7 +34,7 @@ godot --headless res://tests/town_tests.tscn
 godot --headless res://tests/feel_tests.tscn
 ```
 
-The first is 39 assertions covering every serving step's mechanic and the grading. They
+The first is 53 assertions covering the tofu surface, every serving step's mechanic, and the grading. They
 assert the *intent* of each step (smooth beats jerky, stopping on target beats
 overloading), so a tuning change that breaks the point of a step fails the suite.
 

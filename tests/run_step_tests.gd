@@ -27,6 +27,10 @@ class StubView:
 	var ladle_active := false
 	var lid_open := 0.0
 	var lid_steaming := false
+	var sheets := 0
+	## The real material model, not a fake. It is a plain RefCounted, so the
+	## shave tests can exercise the actual tofu instead of a stand-in.
+	var block := TofuSurface.new()
 
 	func bucket_screen_position() -> Vector2:
 		return Vector2(200, 200)
@@ -45,6 +49,15 @@ class StubView:
 
 	func rest_dipper() -> void:
 		pass
+
+	func carve_tofu(u: float, effort: float) -> float:
+		return block.carve(u, effort)
+
+	func gouge_tofu(u: float, depth: float) -> void:
+		block.gouge(u, depth)
+
+	func set_cup_sheets(count: int) -> void:
+		sheets = count
 
 	func set_lid(open: float) -> void:
 		lid_open = open
@@ -99,6 +112,7 @@ class StubView:
 
 
 func _initialize() -> void:
+	_test_tofu_surface()
 	_test_lid()
 	_test_skim_shallow()
 	_test_skim_too_deep()
@@ -209,16 +223,34 @@ func _test_skim_needs_lifting_out() -> void:
 
 # --- shave -----------------------------------------------------------------
 
+## Sweep the blade back and forth across the bucket, taking one `speeds`
+## entry per frame. The pointer has to actually travel now: the cup fills
+## with what the scoop lifts, and a blade held in one place runs out of tofu
+## it is allowed to take almost at once — which is the point of the surface.
+func _sweep(step: ShaveStep, speeds: Array, frames: int) -> void:
+	var x := 200.0
+	var dir := 1.0
+	step.pointer_down(Vector2(x, 400))
+	var i := 0
+	while step.fill < 1.0 and i < frames:
+		var dx: float = speeds[i % speeds.size()] * dir
+		x += dx
+		# The stub puts the bucket centre at x=200 with a 100px radius.
+		if x > 295.0:
+			x = 295.0
+			dir = -1.0
+		elif x < 105.0:
+			x = 105.0
+			dir = 1.0
+		step.pointer_move(Vector2(x, 400), Vector2(absf(dx), 0))
+		i += 1
+	step.pointer_up(Vector2(x, 400))
+
+
 func _shave(speeds: Array) -> ShaveStep:
 	var step := ShaveStep.new()
 	_make(step)
-	step.pointer_down(Vector2(400, 400))
-	var i := 0
-	while step.fill < 1.0 and i < 4000:
-		var dx: float = speeds[i % speeds.size()]
-		step.pointer_move(Vector2(400, 400), Vector2(dx, 0))
-		i += 1
-	step.pointer_up(Vector2.ZERO)
+	_sweep(step, speeds, 6000)
 	_run_until_done(step, 300)
 	return step
 
@@ -232,6 +264,23 @@ func _test_shave_smooth_beats_jerky() -> void:
 	_check("smooth scores well", smooth.score > 0.9, "score=%.3f" % smooth.score)
 	_check("jerky scores worse", jerky.score < smooth.score - 0.2,
 		"jerky=%.3f smooth=%.3f" % [jerky.score, smooth.score])
+	_check("the sweep laid several sheets", smooth.sheets >= 3,
+		"sheets=%d" % smooth.sheets)
+
+	# Working one spot is the case the surface exists to rule out. Wiggling
+	# back and forth in place, which is what grinding actually looks like —
+	# a blade that never travels carves nothing at all, by design.
+	var stuck := ShaveStep.new()
+	var stuck_view := _make(stuck)
+	stuck.pointer_down(Vector2(260, 400))
+	for i in 600:
+		var x := 260.0 + (8.0 if i % 2 == 0 else -8.0)
+		stuck.pointer_move(Vector2(x, 400), Vector2(8, 0))
+	_check("grinding one groove cannot fill the cup", stuck.fill < 0.35,
+		"fill=%.2f" % stuck.fill)
+	_check("and it leaves that groove lower than the rest",
+		stuck_view.block.lowest() < stuck_view.block.highest() - 0.01,
+		"low=%.3f high=%.3f" % [stuck_view.block.lowest(), stuck_view.block.highest()])
 
 
 # --- sago ------------------------------------------------------------------
@@ -391,3 +440,60 @@ func _test_lid() -> void:
 
 	_check("opening the lid is not graded",
 		Grading.WEIGHTS.get("Open the bucket", 1.0) == 0.0)
+
+
+# --- the tofu itself -------------------------------------------------------
+
+## One full pass of the blade across the bucket, left wall to right wall.
+func _pass(surface: TofuSurface) -> float:
+	var taken := 0.0
+	var steps := 40
+	for i in steps + 1:
+		var u := lerpf(-1.0, 1.0, float(i) / float(steps))
+		taken += surface.carve(u, 2.0 / float(steps))
+	return taken
+
+
+func _test_tofu_surface() -> void:
+	print("tofu — a surface, not a number")
+
+	var fresh := TofuSurface.new()
+	_check("a full bucket is full", is_equal_approx(fresh.remaining(), 1.0))
+	_check("and level", is_equal_approx(fresh.levelness(), 1.0))
+
+	var first := _pass(fresh)
+	_check("a pass lifts tofu", first > 0.0, "took=%.3f" % first)
+	_check("and takes it off the whole width",
+		fresh.remaining() < 1.0 and fresh.levelness() > 0.9,
+		"left=%.3f level=%.2f" % [fresh.remaining(), fresh.levelness()])
+
+	var second := _pass(fresh)
+	_check("a second pass lifts about as much again",
+		absf(second - first) < first * 0.35, "first=%.3f second=%.3f" % [first, second])
+
+	# The rule that makes the bucket a place rather than a meter: a flat blade
+	# rides the high points, so it cannot dig a well in one spot.
+	var ground := TofuSurface.new()
+	var ground_take := 0.0
+	for i in 400:
+		ground_take += ground.carve(0.0, 0.05)
+	_check("grinding one spot stops paying", ground_take < first,
+		"ground=%.3f one sweep=%.3f" % [ground_take, first])
+	_check("and most of the bucket is untouched",
+		ground.remaining() > 0.85, "left=%.3f" % ground.remaining())
+	_check("so sweeping the bucket beats working a groove",
+		first > ground_take, "sweep=%.3f groove=%.3f" % [first, ground_take])
+
+	# Gouging is the opposite case: step 1 digging in *should* leave a dent.
+	var dug := TofuSurface.new()
+	dug.gouge(0.0, 0.3)
+	_check("a gouge leaves a dent", dug.levelness() < 0.9,
+		"level=%.2f" % dug.levelness())
+
+	# An empty bucket has nothing left to give.
+	var empty := TofuSurface.new()
+	for i in 4000:
+		empty.carve(lerpf(-1.0, 1.0, fposmod(float(i) * 0.07, 1.0)), 0.05)
+	_check("a bucket can be emptied", empty.remaining() < 0.05,
+		"left=%.3f" % empty.remaining())
+	_check("and then gives nothing", is_equal_approx(empty.carve(0.0, 1.0), 0.0))

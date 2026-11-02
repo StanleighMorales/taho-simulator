@@ -39,6 +39,12 @@ var _residual_loaded := 0.0
 
 func _ready() -> void:
 	_view = load("res://scenes/serving/serving_view.tscn").instantiate()
+	if not _view.has_method("set_ladle"):
+		# The scene's script failed to parse. Say so and stop, rather than
+		# polling a view that will never answer until the run is killed.
+		_check("the serving view loads", false, "its script did not compile")
+		_report()
+		return
 	# Asleep, so no step is driving the tools while we measure them.
 	_view.standalone = false
 	add_child(_view)

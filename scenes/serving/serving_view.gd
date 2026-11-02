@@ -19,6 +19,21 @@ signal order_finished(pay: int, sago_used: float, arnibal_used: float)
 
 const TABLE_Y := 0.05
 
+## The tofu block: inner radius of the bucket, and how tall a full one stands
+## above the bucket floor.
+##
+## A full bucket is nearly full to the rim — a vendor skims the surface just
+## under the lid, not twenty centimetres down a well. It also has to be: the
+## camera cannot see much below the rim, so a block sitting low in the bucket
+## is a surface the player never sees, which would waste the whole of this.
+const TOFU_RADIUS := 0.235
+const TOFU_DEPTH := 0.38
+
+## The bucket tapers towards its base, so the block has to as well. Left
+## straight, its lower half pokes out through the bucket wall as a white
+## band.
+const TOFU_TAPER := 0.9
+
 ## Height the dipper is held at while it works between the small bucket and
 ## the cup. Clear of the cup rim, so the tool reads as held above the cup
 ## rather than sunk into it.
@@ -154,6 +169,11 @@ var _losing_tofu := false
 var _scoop: ToolBody
 var _dipper: ToolBody
 
+## The tofu, as a surface material is taken off, rather than a cylinder that
+## gets shorter. The mesh is rebuilt from it at most once a frame.
+var _tofu := TofuSurface.new()
+var _tofu_dirty := true
+
 var _tofu_fill := 0.0
 var _contents_mat: ShaderMaterial
 var _cup_rest := Vector3.ZERO
@@ -161,6 +181,7 @@ var _cup_rest := Vector3.ZERO
 @onready var _camera: Camera3D = $Camera3D
 @onready var _bucket: Node3D = $Bucket
 @onready var _water: MeshInstance3D = $Bucket/Water
+@onready var _tofu_node: MeshInstance3D = $Bucket/Tofu
 @onready var _cup: Node3D = $Cup
 @onready var _contents: MeshInstance3D = $Cup/Contents
 @onready var _sago: MultiMeshInstance3D = $Cup/Sago
@@ -208,6 +229,10 @@ func _process(delta: float) -> void:
 		_cup.scale = Vector3(s, 1.0 + _pulse * 0.1, s)
 
 	_update_tools(delta)
+
+	if _tofu_dirty:
+		_tofu_dirty = false
+		_rebuild_tofu()
 
 	if _finished or _active == null:
 		return
@@ -365,8 +390,112 @@ func set_bucket_water(level: float) -> void:
 	# uncovers the white tofu around it.
 	var spread := lerpf(0.3, 1.0, l)
 	_water.scale = Vector3(spread, l, spread)
-	_water.position.y = 0.32 + 0.06 * l
+	# The whey lies on top of the tofu, so it rides on the block.
+	_water.position.y = TOFU_DEPTH + 0.06 * l
 	_water.visible = level > 0.01
+
+
+## Take a thin layer of tofu off wherever the blade is, and report how much
+## actually came up. The cup fills by what the scoop lifted, so working one
+## groove stops paying and the bucket has to be worked across.
+func carve_tofu(u: float, effort: float) -> float:
+	var taken := _tofu.carve(u, effort)
+	if taken > 0.0:
+		_tofu_dirty = true
+	return taken
+
+
+## Digging below the water in step 1 takes a bite out of the tofu, and the
+## dent is still there when it is time to shave it.
+func gouge_tofu(u: float, depth: float) -> void:
+	_tofu.gouge(u, depth)
+	_tofu_dirty = true
+
+
+func tofu_remaining() -> float:
+	return _tofu.remaining()
+
+
+## Rebuild the block from the profile: a ribbon across the top at the sampled
+## heights, with a skirt down each side so it reads as a solid block rather
+## than a sheet of paper. Small enough to regenerate outright — about fifty
+## vertices — so there is no need to be clever about updating it in place.
+func _rebuild_tofu() -> void:
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+
+	var n := TofuSurface.SAMPLES
+	var xs := PackedFloat32Array()
+	var halfs := PackedFloat32Array()
+	var ys := PackedFloat32Array()
+	xs.resize(n)
+	halfs.resize(n)
+	ys.resize(n)
+	for i in n:
+		var t := float(i) / float(n - 1)
+		xs[i] = lerpf(-TOFU_RADIUS, TOFU_RADIUS, t)
+		# The bucket is round, so each slice is only as wide as the circle is
+		# at that x. Without this the block is a box in a cylinder.
+		halfs[i] = sqrt(maxf(0.0, TOFU_RADIUS * TOFU_RADIUS - xs[i] * xs[i]))
+		ys[i] = TOFU_DEPTH * _tofu.heights[i]
+
+	for i in n - 1:
+		var x0 := xs[i]
+		var x1 := xs[i + 1]
+		var w0 := halfs[i]
+		var w1 := halfs[i + 1]
+		var y0 := ys[i]
+		var y1 := ys[i + 1]
+
+		# Top. Wound front-to-back, so the normal comes out pointing up: the
+		# other way round it is back-face culled and the bucket looks empty.
+		_quad(verts, normals,
+			Vector3(x0, y0, w0), Vector3(x1, y1, w1),
+			Vector3(x1, y1, -w1), Vector3(x0, y0, -w0))
+		# Sides, down to the bucket floor, drawing in as they go.
+		var bx0 := x0 * TOFU_TAPER
+		var bx1 := x1 * TOFU_TAPER
+		var bw0 := w0 * TOFU_TAPER
+		var bw1 := w1 * TOFU_TAPER
+		_quad(verts, normals,
+			Vector3(bx0, 0.0, bw0), Vector3(bx1, 0.0, bw1),
+			Vector3(x1, y1, w1), Vector3(x0, y0, w0))
+		_quad(verts, normals,
+			Vector3(x0, y0, -w0), Vector3(x1, y1, -w1),
+			Vector3(bx1, 0.0, -bw1), Vector3(bx0, 0.0, -bw0))
+
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_tofu_node.mesh = mesh
+
+
+## Two triangles, with a flat normal each, so the block stays faceted like
+## the rest of the art instead of looking smoothly inflated.
+func _quad(verts: PackedVector3Array, normals: PackedVector3Array,
+		a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	_tri(verts, normals, a, b, c)
+	_tri(verts, normals, a, c, d)
+
+
+func _tri(verts: PackedVector3Array, normals: PackedVector3Array,
+		a: Vector3, b: Vector3, c: Vector3) -> void:
+	# The normal is the right-hand one for a-b-c, which is the outward
+	# direction. Godot wants the *clockwise* winding for a front face though,
+	# so the vertices go in reversed. Get this backwards and the block is
+	# inside out: you see straight through the top at the inside of the far
+	# wall, which is exactly how this was found.
+	var normal := (b - a).cross(c - a).normalized()
+	verts.append(a)
+	verts.append(c)
+	verts.append(b)
+	normals.append(normal)
+	normals.append(normal)
+	normals.append(normal)
 
 
 func spill(is_losing: bool) -> void:
@@ -534,6 +663,13 @@ func set_cup_mix(mix: float) -> void:
 	_contents_mat.set_shader_parameter("mix_amount", mix)
 
 
+## How many separate layers of tofu are stacked in the cup. Taho goes in as
+## thin sheets, and the stack is the most recognisable image of the stuff —
+## the shader bands the contents so it is visible through the cup wall.
+func set_cup_sheets(count: int) -> void:
+	_contents_mat.set_shader_parameter("sheets", float(count))
+
+
 func cup_screen_position() -> Vector2:
 	return _camera.unproject_position(_cup.global_position + Vector3(0, 0.2, 0))
 
@@ -568,7 +704,14 @@ func return_cup() -> void:
 func _build_materials() -> void:
 	_set_material($Table, Color(0.30, 0.22, 0.17), 0.9)
 	_set_material($Bucket/Body, Color(0.76, 0.78, 0.80), 0.45)
-	_set_material($Bucket/Tofu, Color(0.96, 0.95, 0.91), 0.65)
+	# `material_override`, not a surface override: the block's mesh is
+	# regenerated as it is carved, and swapping a mesh clears the per-surface
+	# overrides with it.
+	var tofu_mat := StandardMaterial3D.new()
+	tofu_mat.albedo_color = Color(0.96, 0.95, 0.91)
+	tofu_mat.roughness = 0.65
+	$Bucket/Tofu.material_override = tofu_mat
+	$Bucket/Tofu.position = Vector3.ZERO
 	# The bucket has no lid now, so its far inner wall must not be culled.
 	var body_mat: StandardMaterial3D = $Bucket/Body.get_surface_override_material(0)
 	body_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -774,6 +917,9 @@ func _reset_visuals() -> void:
 	set_lid(0.0)
 	_steam.emitting = false
 	_refresh_small_bucket()
+	_tofu.refill()
+	_tofu_dirty = true
+	set_cup_sheets(0)
 	_cup.position = _cup_rest
 	_cup.scale = Vector3.ONE
 	_gauge_bg.visible = true
