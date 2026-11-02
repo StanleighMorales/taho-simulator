@@ -79,6 +79,9 @@ func _process(_delta: float) -> void:
 			_main._target = _subject
 			_main._on_interact()
 			_check("the serving view took the screen", _main._serving.visible)
+			_check("and the bucket is as full as the load is",
+				_main._serving._tofu.remaining() > 0.95,
+				"block=%.2f" % _main._serving._tofu.remaining())
 			_check("the street is hidden", _town.visible == false)
 			_check("the player is frozen", _player.frozen)
 			_check("nothing was paid yet", GameState.money == before)
@@ -108,6 +111,17 @@ func _process(_delta: float) -> void:
 			_check("roaming camera is active again", _player.camera().is_current())
 
 			_section("supplies and the refill trip")
+
+			# The bucket the player looks into has to be the bucket they are
+			# carrying, or the block is just decoration.
+			GameState.tofu = 6
+			_main._serving.begin_order()
+			_check("a half-used load shows as a half-full bucket",
+				absf(_main._serving._tofu.remaining() - 0.5) < 0.05,
+				"block=%.2f" % _main._serving._tofu.remaining())
+			_main._serving.end_order()
+			_player.camera().make_current()
+
 			GameState.tofu = 0
 			_check("an empty bucket cannot serve", GameState.can_serve() == false)
 			_main._target = _customers.get_child(0)

@@ -26,13 +26,15 @@ const TABLE_Y := 0.05
 ## under the lid, not twenty centimetres down a well. It also has to be: the
 ## camera cannot see much below the rim, so a block sitting low in the bucket
 ## is a surface the player never sees, which would waste the whole of this.
-const TOFU_RADIUS := 0.235
+const TOFU_RADIUS := 0.246
 const TOFU_DEPTH := 0.38
 
-## The bucket tapers towards its base, so the block has to as well. Left
-## straight, its lower half pokes out through the bucket wall as a white
-## band.
-const TOFU_TAPER := 0.9
+## The bucket tapers towards its base, so the block has to follow it at every
+## height — not just lean in at the bottom. Sized for the widest point and
+## left straight, the block pokes out through the wall as a white band, and
+## it does so worst when the level is low and the bucket is narrowest.
+const BUCKET_INNER_BASE := 0.216
+const BUCKET_FLARE := 0.08
 
 ## Height the dipper is held at while it works between the small bucket and
 ## the cup. Clear of the cup rim, so the tool reads as held above the cup
@@ -447,22 +449,25 @@ func _rebuild_tofu() -> void:
 		var y0 := ys[i]
 		var y1 := ys[i + 1]
 
+		# Every vertex is drawn in to whatever the bucket's radius is at its
+		# own height, not just leaned in at the base.
+		var t0 := _bucket_taper(y0)
+		var t1 := _bucket_taper(y1)
+		var tb := _bucket_taper(0.0)
+
 		# Top. Wound front-to-back, so the normal comes out pointing up: the
 		# other way round it is back-face culled and the bucket looks empty.
 		_quad(verts, normals,
-			Vector3(x0, y0, w0), Vector3(x1, y1, w1),
-			Vector3(x1, y1, -w1), Vector3(x0, y0, -w0))
-		# Sides, down to the bucket floor, drawing in as they go.
-		var bx0 := x0 * TOFU_TAPER
-		var bx1 := x1 * TOFU_TAPER
-		var bw0 := w0 * TOFU_TAPER
-		var bw1 := w1 * TOFU_TAPER
+			Vector3(x0 * t0, y0, w0 * t0), Vector3(x1 * t1, y1, w1 * t1),
+			Vector3(x1 * t1, y1, -w1 * t1), Vector3(x0 * t0, y0, -w0 * t0))
+
+		# Sides, down to the bucket floor.
 		_quad(verts, normals,
-			Vector3(bx0, 0.0, bw0), Vector3(bx1, 0.0, bw1),
-			Vector3(x1, y1, w1), Vector3(x0, y0, w0))
+			Vector3(x0 * tb, 0.0, w0 * tb), Vector3(x1 * tb, 0.0, w1 * tb),
+			Vector3(x1 * t1, y1, w1 * t1), Vector3(x0 * t0, y0, w0 * t0))
 		_quad(verts, normals,
-			Vector3(x0, y0, -w0), Vector3(x1, y1, -w1),
-			Vector3(bx1, 0.0, -bw1), Vector3(bx0, 0.0, -bw0))
+			Vector3(x0 * t0, y0, -w0 * t0), Vector3(x1 * t1, y1, -w1 * t1),
+			Vector3(x1 * tb, 0.0, -w1 * tb), Vector3(x0 * tb, 0.0, -w0 * tb))
 
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -472,6 +477,12 @@ func _rebuild_tofu() -> void:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	_tofu_node.mesh = mesh
+
+
+## How much to draw the block in at height `y`, so it sits just inside the
+## bucket wall. 1.0 at the height a full block stands at.
+func _bucket_taper(y: float) -> float:
+	return (BUCKET_INNER_BASE + BUCKET_FLARE * y) / TOFU_RADIUS
 
 
 ## Two triangles, with a flat normal each, so the block stays faceted like
@@ -917,7 +928,10 @@ func _reset_visuals() -> void:
 	set_lid(0.0)
 	_steam.emitting = false
 	_refresh_small_bucket()
-	_tofu.refill()
+	# The block starts each order where the day left it. On cup eleven of
+	# twelve there is visibly a scraping left in the bottom, which is the
+	# whole argument for walking home before you have to.
+	_tofu.set_level(float(GameState.tofu) / float(GameState.LOAD_SIZE))
 	_tofu_dirty = true
 	set_cup_sheets(0)
 	_cup.position = _cup_rest

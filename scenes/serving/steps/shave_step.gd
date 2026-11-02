@@ -106,16 +106,27 @@ func _count_sheet(u: float) -> void:
 
 func update(delta: float) -> void:
 	_idle += delta
-	if fill >= 1.0 and _idle > 0.45:
-		_view.set_ladle(false, 0.0, 0.0)
-		var avg := smoothness / maxf(1.0, float(_samples))
-		_finish(avg - overfill * OVERFILL_PENALTY)
+
+	# A full cup, or a bucket with nothing left in it. The second case is the
+	# last cup of a load: there is no more tofu, so the customer gets a short
+	# cup rather than the step waiting forever for a fill that cannot happen.
+	var scraped_out: bool = fill > 0.0 and _view.tofu_remaining() <= 0.002
+	if not (fill >= 1.0 or scraped_out) or _idle <= 0.45:
+		return
+
+	_view.set_ladle(false, 0.0, 0.0)
+	var avg := smoothness / maxf(1.0, float(_samples))
+	# Scaled by how full the cup actually got. A no-op for a full cup, and
+	# the only thing that makes a half-empty one score like one.
+	_finish(avg * fill - overfill * OVERFILL_PENALTY)
 
 
 func hint() -> String:
-	if fill < 1.0:
-		return "Sweep side to side. Smooth, even strokes."
-	return "Full. Lift the ladle."
+	if fill >= 1.0:
+		return "Full. Lift the ladle."
+	if _view.tofu_remaining() <= 0.002:
+		return "That is the last of it."
+	return "Sweep side to side. Smooth, even strokes."
 
 
 func gauge() -> float:

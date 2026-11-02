@@ -19,25 +19,40 @@ extends RefCounted
 const SAMPLES := 24
 
 ## How deep one pass of the blade bites.
-const LAYER := 0.045
+const LAYER := 0.017
 
 ## How much of the bucket the scoop covers, in bucket radii either side.
 const REACH := 0.5
 
-## Total height removed to fill one cup. Roughly five full sweeps.
-const PER_CUP := 5.4
+## Total height removed to fill one cup.
+##
+## These three numbers have to agree with each other and with
+## `GameState.LOAD_SIZE`, or the bucket and the inventory are two different
+## buckets. A full block is `SAMPLES` units of height; one cup takes
+## `PER_CUP` of them; so a load is `SAMPLES / PER_CUP` = twelve cups, which
+## is what `LOAD_SIZE` says it is. And one full sweep yields
+## `SAMPLES * LAYER`, so a cup is about five sweeps of work.
+const PER_CUP := 2.0
 
 var heights: PackedFloat32Array
 
 
 func _init() -> void:
+	heights = PackedFloat32Array()
+	heights.resize(SAMPLES)
 	refill()
 
 
 func refill() -> void:
-	heights = PackedFloat32Array()
-	heights.resize(SAMPLES)
-	heights.fill(1.0)
+	set_level(1.0)
+
+
+## Flatten the surface to `fraction` of a full bucket. This is how the block
+## is told what the day has done to it: the cups sold so far live in
+## `GameState`, and the bucket the player looks into has to be the same
+## bucket they are carrying.
+func set_level(fraction: float) -> void:
+	heights.fill(clampf(fraction, 0.0, 1.0))
 
 
 ## Take a thin layer wherever the blade is. `u` is the middle of the blade in

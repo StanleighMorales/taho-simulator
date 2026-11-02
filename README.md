@@ -34,7 +34,7 @@ godot --headless res://tests/town_tests.tscn
 godot --headless res://tests/feel_tests.tscn
 ```
 
-The first is 53 assertions covering the tofu surface, every serving step's mechanic, and the grading. They
+The first is 60 assertions covering the tofu surface, every serving step's mechanic, and the grading. They
 assert the *intent* of each step (smooth beats jerky, stopping on target beats
 overloading), so a tuning change that breaks the point of a step fails the suite.
 
@@ -43,7 +43,7 @@ drags in material, gets heavier as it fills and leans into the turn. Each one co
 runs of the same movement rather than pinning a number, so tuning stays free to move while
 the intent does not.
 
-The second is 25 assertions over the roaming layer: the town builds, customers appear,
+The second is 27 assertions over the roaming layer: the town builds, customers appear,
 standing next to one offers a sale, the switch into the serving view and back works, and
 the money and supplies move the right way. It runs as a **scene**, not with `--script` —
 a custom main loop does not register the `GameState` autoload that both it and the code

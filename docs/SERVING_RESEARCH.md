@@ -264,15 +264,37 @@ hand on one customer is visible to the next.
 - **A lid stopped anywhere near upright is a 27cm disc across the camera.** It has to fold
   right back behind the bucket, which is also what a hinged lid does.
 
-### 4. Connect the big bucket to the inventory
-*(The small bucket's sago and arnibal already do this, as of item 3. What is left is the
-tofu.)*
-`set_bucket_water` / the tofu level should read from `GameState.tofu`, not reset per
-customer. Twelve cups out of a load means the surface is visibly lower on cup 11 than on
-cup 2, and the refill at home becomes something you can *see* the need for rather than
-read in a number.
+### 4. Connect the big bucket to the inventory — ✅ **done, 2026-11-03**
 
-Cheap. Large effect on the roaming loop as well as the serving one.
+The tofu level should read from `GameState.tofu`, not reset per customer. Twelve cups out
+of a load means the surface is visibly lower on cup 11 than on cup 2, and the refill at
+home becomes something you can *see* the need for rather than read in a number.
+
+**What shipped.** The block starts each order at `GameState.tofu / LOAD_SIZE`. A full load
+stands nearly to the rim; half a load is a smaller white patch sitting low in the bucket;
+the last cup is a scraping in the bottom.
+
+**Three numbers had to be made to agree**, or the bucket the player looks into is not the
+bucket they are carrying. A full block is `SAMPLES` units of height, one cup takes
+`PER_CUP` of them, and a load is `LOAD_SIZE` cups. Setting `PER_CUP` to 2.0 makes
+`SAMPLES / PER_CUP` exactly twelve, and `LAYER` at 0.017 keeps a cup at about five sweeps
+of work, which is where it already felt right. A test asserts the twelve, so the three
+cannot drift apart again.
+
+A property falls out of that which is worth keeping: **the last cup of a load is exactly
+one cup**, scraped off the bottom. Nothing contrives it; it is what the arithmetic says.
+
+**What that exposed:** a bucket can now run dry *during* a cup. The shave step used to
+wait for a fill that could never arrive, which is a soft lock on the last cup of a load.
+It now finishes with a short cup, and the score is scaled by how full the cup actually
+got — a no-op for a full one, and the only thing that makes a half-empty one score like
+one.
+
+**And the thing this nearly repeated:** at a half load the block sat below the sightline
+over the bucket's near wall, so the whole point of the item — *seeing* the bucket get low
+— did not happen. The same mistake as under item 2, caught this time by looking at it.
+The camera is now pitched at 50° rather than 40°, which clears the near rim at every
+level.
 
 ### 5. Hold the cup
 The player never touches the cup until step 6. In reality it is in your other hand the
@@ -327,6 +349,8 @@ coins in it that you pick from is a better ending to an order than a number goin
 - **Do not make it harder.** Every item above is about *feel*, not difficulty. Pillar 3
   says you can have a bad day but cannot lose; weight and resistance must not become a
   precision test.
+- **Do not trust a change to the bucket until you have looked at it.** Three items in a
+  row have shipped something the camera could not see. Render it.
 - **Do not do item 2 before item 1.** The heightfield is a week; the spring is an evening,
   and it may turn out to be most of what was missing.
 

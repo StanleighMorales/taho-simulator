@@ -56,6 +56,9 @@ class StubView:
 	func gouge_tofu(u: float, depth: float) -> void:
 		block.gouge(u, depth)
 
+	func tofu_remaining() -> float:
+		return block.remaining()
+
 	func set_cup_sheets(count: int) -> void:
 		sheets = count
 
@@ -118,6 +121,7 @@ func _initialize() -> void:
 	_test_skim_too_deep()
 	_test_skim_needs_lifting_out()
 	_test_shave_smooth_beats_jerky()
+	_test_shave_runs_dry()
 	_test_sago_amount()
 	_test_arnibal_timing()
 	_test_swirl_sweet_spot()
@@ -492,8 +496,48 @@ func _test_tofu_surface() -> void:
 
 	# An empty bucket has nothing left to give.
 	var empty := TofuSurface.new()
-	for i in 4000:
-		empty.carve(lerpf(-1.0, 1.0, fposmod(float(i) * 0.07, 1.0)), 0.05)
+	for p in 90:
+		_pass(empty)
 	_check("a bucket can be emptied", empty.remaining() < 0.05,
 		"left=%.3f" % empty.remaining())
 	_check("and then gives nothing", is_equal_approx(empty.carve(0.0, 1.0), 0.0))
+
+	# The block and the inventory have to be the same bucket.
+	var part := TofuSurface.new()
+	part.set_level(0.5)
+	_check("a half-used load is a half-full block",
+		is_equal_approx(part.remaining(), 0.5), "left=%.3f" % part.remaining())
+	var cups := 0.0
+	for p in 400:
+		cups += _pass(part)
+	_check("and half a load is about six cups",
+		absf(cups / TofuSurface.PER_CUP - 6.0) < 1.0,
+		"cups=%.1f" % (cups / TofuSurface.PER_CUP))
+
+	var load := TofuSurface.new()
+	var whole := 0.0
+	for p in 400:
+		whole += _pass(load)
+	_check("a full load is about twelve cups, which is what LOAD_SIZE says",
+		absf(whole / TofuSurface.PER_CUP - 12.0) < 1.0,
+		"cups=%.1f" % (whole / TofuSurface.PER_CUP))
+
+
+# --- the last cup of a load ------------------------------------------------
+
+func _test_shave_runs_dry() -> void:
+	print("shave — scraping out the last of it")
+
+	var step := ShaveStep.new()
+	var view := _make(step)
+	# A tenth of a load: not enough for a whole cup.
+	view.block.set_level(0.04)
+	_sweep(step, [12.0], 6000)
+	_run_until_done(step, 300)
+
+	_check("the step still finishes", step.complete)
+	_check("but the cup is short", step.fill < 1.0, "fill=%.2f" % step.fill)
+	_check("the bucket is scraped out", view.block.remaining() < 0.01,
+		"left=%.4f" % view.block.remaining())
+	_check("and a short cup scores worse than a full one", step.score < 0.8,
+		"score=%.3f" % step.score)
