@@ -1,0 +1,100 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scenes/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/town/town.tscn" id="2_town"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/serving/serving_view.tscn" id="4_serving"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="Town" parent="." instance=ExtResource("2_town")]
+
+[node name="Customers" type="Node3D" parent="."]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+
+[node name="ServingView" parent="." instance=ExtResource("4_serving")]
+position = Vector3(0, -60, 0)
+standalone = false
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Money" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 14.0
+offset_right = 420.0
+offset_bottom = 54.0
+theme_override_colors/font_color = Color(1, 0.93, 0.78, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.75)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+
+[node name="Supplies" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 50.0
+offset_right = 460.0
+offset_bottom = 82.0
+theme_override_colors/font_color = Color(0.9, 0.92, 0.95, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 19
+
+[node name="Compass" type="Label" parent="HUD"]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 18.0
+offset_right = 300.0
+offset_bottom = 54.0
+theme_override_colors/font_color = Color(1, 0.95, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.75)
+theme_override_constants/outline_size = 7
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="Toast" type="Label" parent="HUD"]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -340.0
+offset_top = 58.0
+offset_right = 340.0
+offset_bottom = 94.0
+theme_override_colors/font_color = Color(0.72, 1, 0.8, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
+theme_override_constants/outline_size = 7
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="Prompt" type="Label" parent="HUD"]
+visible = false
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -340.0
+offset_top = -116.0
+offset_right = 340.0
+offset_bottom = -72.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+
+[node name="Controls" type="Label" parent="HUD"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -40.0
+offset_right = 420.0
+offset_bottom = -12.0
+theme_override_colors/font_color = Color(0.82, 0.82, 0.86, 0.75)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.6)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1

@@ -3,6 +3,13 @@
 A 3D browser game. You play **Lolo Ben**, an old taho vendor working a Metro Manila
 neighbourhood for 7 days to save up for his granddaughter's graduation photo.
 
+Walk the street, find whoever is shouting for taho, set the buckets down and serve
+them. When the buckets run dry, walk home and refill.
+
+**Controls:** WASD / arrows to walk, or tap the ground to walk there · drag to look ·
+`E` (or tap a customer you are standing next to) to serve. Everything in the serving
+minigame is press / drag / release, so it plays the same with a mouse or a finger.
+
 **Play it: https://stanleighmorales.github.io/taho-simulator/**
 
 See **[docs/GAME_PLAN.md](docs/GAME_PLAN.md)** for the full design and technical plan.
@@ -19,9 +26,19 @@ See **[docs/GAME_PLAN.md](docs/GAME_PLAN.md)** for the full design and technical
 godot --headless --script res://tests/run_step_tests.gd
 ```
 
-27 assertions covering every serving step's mechanic and the grading. They assert the
-*intent* of each step (smooth beats jerky, stopping on target beats overloading), so a
-tuning change that breaks the point of a step fails the suite.
+```sh
+godot --headless res://tests/town_tests.tscn
+```
+
+The first is 31 assertions covering every serving step's mechanic and the grading. They
+assert the *intent* of each step (smooth beats jerky, stopping on target beats
+overloading), so a tuning change that breaks the point of a step fails the suite.
+
+The second is 25 assertions over the roaming layer: the town builds, customers appear,
+standing next to one offers a sale, the switch into the serving view and back works, and
+the money and supplies move the right way. It runs as a **scene**, not with `--script` —
+a custom main loop does not register the `GameState` autoload that both it and the code
+under test need.
 
 ## Build and run the web export
 

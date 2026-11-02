@@ -9,16 +9,28 @@ extends Node3D
 ##
 ## All input is pointer-based (press / drag / release). Godot synthesises
 ## mouse events from touch, so this plays the same on a phone.
+##
+## Runs two ways. On its own it loops customers forever, which is how it was
+## built and tested. Embedded in the town it sleeps until `begin_order()`,
+## then reports the sale with `order_finished` and goes back to sleep — the
+## scene is never unloaded, exactly as section 7 of the plan asks.
+
+signal order_finished(pay: int, sago_used: float, arnibal_used: float)
 
 const TABLE_Y := 0.05
+
+## False when the town owns the flow.
+@export var standalone := true
 
 var _steps: Array = []
 var _index := 0
 var _active: ServingStep = null
 var _finished := false
 
-var _money := 0
-var _served := 0
+## True only while this view has the screen and the pointer.
+var _live := false
+
+var _last_pay := 0
 
 var _pulse := 0.0
 var _losing_tofu := false
@@ -37,6 +49,7 @@ var _cup_rest := Vector3.ZERO
 @onready var _stream: MeshInstance3D = $PourStream
 @onready var _customer: Node3D = $Customer
 
+@onready var _ui: CanvasLayer = $UI
 @onready var _ui_money: Label = $UI/Money
 @onready var _ui_title: Label = $UI/Title
 @onready var _ui_hint: Label = $UI/Hint
@@ -47,13 +60,19 @@ var _cup_rest := Vector3.ZERO
 @onready var _card_grade: Label = $UI/Card/Box/Grade
 @onready var _card_reaction: Label = $UI/Card/Box/Reaction
 @onready var _card_pay: Label = $UI/Card/Box/Pay
+@onready var _card_again: Label = $UI/Card/Box/Again
 
 
 func _ready() -> void:
 	_cup_rest = _cup.position
 	_build_materials()
 	_build_sago()
-	_start_customer()
+	if standalone:
+		_card_again.text = "tap for the next customer"
+		begin_order()
+	else:
+		_card_again.text = "tap to pick the buckets back up"
+		end_order()
 
 
 func _process(delta: float) -> void:
@@ -73,9 +92,14 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _live:
+		return
 	if _finished:
 		if _is_press(event):
-			_start_customer()
+			if standalone:
+				_start_customer()
+			else:
+				_hand_back()
 		return
 	if _active == null:
 		return
@@ -96,6 +120,47 @@ func _is_press(event: InputEvent) -> bool:
 
 
 # --- flow ------------------------------------------------------------------
+
+## Take the screen and start an order. The town calls this once the player
+## sets the buckets down next to a customer.
+func begin_order() -> void:
+	visible = true
+	_ui.visible = true
+	_live = true
+	_camera.make_current()
+	_start_customer()
+
+
+## Give the screen back without unloading anything. Safe to call twice: the
+## town calls it when it takes the screen back, whether or not the player got
+## there by dismissing the grade card.
+func end_order() -> void:
+	_live = false
+	_active = null
+	visible = false
+	_ui.visible = false
+
+
+func _hand_back() -> void:
+	end_order()
+	order_finished.emit(_last_pay, _sago_used(), _arnibal_used())
+
+
+## How much of a cup's worth of each syrup actually went in, so the town can
+## take it out of the buckets. A heavy hand costs a refill trip sooner.
+func _sago_used() -> float:
+	for step in _steps:
+		if step is SagoStep:
+			return maxf(0.0, step.amount)
+	return 1.0
+
+
+func _arnibal_used() -> float:
+	for step in _steps:
+		if step is ArnibalStep:
+			return maxf(0.0, step.level + step.overflow)
+	return 1.0
+
 
 func _start_customer() -> void:
 	_finished = false
@@ -139,8 +204,11 @@ func _complete_order() -> void:
 
 	var value := Grading.sarap(_steps)
 	var pay := Grading.payment(value)
-	_money += pay
-	_served += 1
+	_last_pay = pay
+	# Standalone there is nobody else to bank it. Embedded, the town credits
+	# the sale once the player picks the buckets back up.
+	if standalone:
+		GameState.earn(pay)
 
 	_card_grade.text = Grading.grade_label(value)
 	_card_reaction.text = Grading.reaction(value)
@@ -401,4 +469,4 @@ func _refresh_hud() -> void:
 
 
 func _refresh_money() -> void:
-	_ui_money.text = "P%d    served: %d" % [_money, _served]
+	_ui_money.text = "P%d    served: %d" % [GameState.money, GameState.served]

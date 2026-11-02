@@ -3,10 +3,10 @@
 A 3D browser game. You are **Lolo Ben**, an old taho vendor pushing through a Metro Manila
 neighbourhood for 7 days, saving up for his granddaughter's graduation photo package.
 
-Status: **M2 playable** — https://stanleighmorales.github.io/taho-simulator/
-All six serving steps work end to end with grading and payment. Godot **4.7.2-stable**,
-Compatibility renderer, single-threaded web export, deployed automatically from `main`
-(see §10 and §11).
+Status: **M1 + M2 playable** — https://stanleighmorales.github.io/taho-simulator/
+You roam a small town, find a customer, serve all six steps, get paid, and walk home to
+refill. Godot **4.7.2-stable**, Compatibility renderer, single-threaded web export,
+deployed automatically from `main` (see §10, §11 and §12).
 
 ---
 
@@ -215,10 +215,10 @@ in a browser.
 | # | Milestone | Done when |
 |---|---|---|
 | **M0** | Web pipeline | Spinning cube live on itch.io + GH Pages, loads on a phone. Renderer switched to Compatibility. |
-| **M1** | Roaming | Lolo Ben walks one street block carrying buckets, camera follows, placeholder boxes for buildings. |
+| **M1** | Roaming | ✅ Done. Lolo Ben walks a two-street town carrying buckets, camera follows, placeholder boxes for buildings. See §12. |
 | **M2** | **The pour** | ✅ Done. One customer, all six steps, grading, money awarded, on placeholder geometry. |
 | **M3** | Day cycle | Day timer, quota, evening scene, save/load, 7 days reachable with day 7 stubbed. |
-| **M4** | The city | Full street layout, NPC spawning, the "Taho po!" shout system, supplies + refill-at-home economy. |
+| **M4** | The city | Partly done in §12 (layout, spawning, shouts, supplies, refill). Left: a real route worth planning, more of the street's specificity, crowd NPCs who are not customers. |
 | **M5** | Content | Customer types, modifiers, street gags, upgrades, difficulty ramp per day. |
 | **M6** | Juice & perf | Full audio pass, animation polish, grade cards, browser perf pass to the §7 budget. |
 | **M7** | The ending | Day 7 sequence, cutscene, music, credits. |
@@ -351,3 +351,73 @@ Two bugs came out of that rebuild:
 - **The handover looks wrong**: the cup tweens into the customer capsule rather than being
   held. Fine on placeholder geometry, needs a hand to attach to later.
 - Placeholder geometry throughout: cylinders, a capsule customer, no Lolo Ben.
+
+---
+
+## 12. M1 — the town
+
+A small neighbourhood you walk around, with the serving minigame hanging off it.
+
+### What is there
+Two streets crossing, pavements and kerbs, around two dozen shop fronts with awnings,
+a barangay court, parked jeepneys, lamp posts, and Lolo Ben's house a few steps off the
+cross street. Customers appear on the pavement, shout *"Taho po!"*, and wait. Walk into
+one and the buckets go down; the serving view takes the screen; the sale is banked and
+the supplies come out of the buckets when you pick them back up. Run dry, walk home,
+stand on the porch, refill.
+
+### Code shape
+- `scenes/town/town.gd` — builds the whole town **in code**, not in a `.tscn`. See the
+  reason below.
+- `scenes/player/player.gd` — `CharacterBody3D`, WASD **and** tap-to-walk, drag to look.
+  The camera is positioned by hand each frame rather than parented or hung off a
+  `SpringArm3D`.
+- `scenes/npc/customer.gd` — a silhouette, a shout, and an `Area3D`. Customer types are
+  a table in the script for now; §7 wants them as `Resource` files, which is the right
+  move as soon as they carry more than a name and a line.
+- `scenes/main.gd` — owns the one mode switch. Roaming and serving are two cameras over
+  two sets of geometry that both stay loaded.
+- `autoload/game_state.gd` — money, supplies, tally. Nothing else.
+- `tests/town_tests.tscn` — 25 assertions over all of the above.
+
+### Decisions worth keeping
+- **The town is built in code.** A hand-written `.tscn` of `Transform3D` literals is
+  exactly where this project lost an afternoon in M2: Godot writes a basis **row by
+  row**, so a transform typed as columns silently inverts. `position` and
+  `rotation_degrees` cannot go wrong that way, and the layout reads as data.
+- **The follow camera is driven by hand.** Same reason: `SpringArm3D` encodes a
+  direction convention that is easy to get backwards, and the fix for a camera staring
+  at the sky is expensive to find twice.
+- **Tap to walk, drag to look**, separated by a 14px threshold. That is the whole mobile
+  control scheme, and it costs one `if`.
+- **Supplies gate the sale, time does not yet.** Walking home is currently the only
+  reason the map has a shape. The day timer in M3 is the other half.
+
+### Problems found and fixed
+1. **Buildings on the cross street grew into the road.** The flip that decides which way
+   a lot extends was keyed to the wrong side, so the west row crossed the pavement and
+   covered the carriageway. The opening view was a wall.
+2. **The player started inside a block**, facing the back of a shop with the camera
+   jammed against it. Home moved from deep in the block to a few steps off the cross
+   street, so the first frame is the town.
+3. **Lamp posts sat on the kerb**, which is where the follow camera wants to be — one
+   was dead centre of the opening shot. They are at the back of the pavement now. Less
+   authentic, considerably more playable.
+4. **The town was over-lit.** Sky ambient at 0.9 plus a 1.25 sun washed every facade to
+   near white. Now 0.38 / 1.0, and the fog is thinner.
+5. **`main` assumed the serving view had already hidden itself.** True by the route a
+   player takes, false when anything else ends an order — the integration test caught
+   it. Putting the view to sleep is now explicit and safe to do twice.
+
+### Known gaps, honestly
+- **Still no audio.** Unchanged from M2, and still the biggest gap.
+- **Nobody has walked it with their hands.** The feel of the walk speed, the camera
+  distance and the 3.2m serving radius is untested by a human.
+- **Not measured in a browser.** ~135 nodes in the town, well inside the §7 draw-call
+  budget on paper, but the figure that matters is frames on a weak laptop and that has
+  not been taken.
+- **The town is a grid.** It reads as a street, but there is no route worth planning in
+  it yet — no reason to prefer one block over another. That is what M4 is for.
+- **Customers are capsules with a shirt colour.** The types exist as names and lines
+  only; none of them has its own rule yet.
+- **No day timer, no evening, no save.** M3.
