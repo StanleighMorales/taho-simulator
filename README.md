@@ -30,15 +30,25 @@ godot --headless --script res://tests/run_step_tests.gd
 godot --headless res://tests/town_tests.tscn
 ```
 
+```sh
+godot --headless res://tests/feel_tests.tscn
+```
+
 The first is 31 assertions covering every serving step's mechanic and the grading. They
 assert the *intent* of each step (smooth beats jerky, stopping on target beats
 overloading), so a tuning change that breaks the point of a step fails the suite.
+
+The third is 13 assertions on how the tools *feel* — that the ladle lags the hand,
+drags in material, gets heavier as it fills and leans into the turn. Each one compares two
+runs of the same movement rather than pinning a number, so tuning stays free to move while
+the intent does not.
 
 The second is 25 assertions over the roaming layer: the town builds, customers appear,
 standing next to one offers a sale, the switch into the serving view and back works, and
 the money and supplies move the right way. It runs as a **scene**, not with `--script` —
 a custom main loop does not register the `GameState` autoload that both it and the code
-under test need.
+under test need. The feel tests run as a scene for the same reason and because the springs
+integrate in `_process`, so they need real frames.
 
 ## Build and run the web export
 

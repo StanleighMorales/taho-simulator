@@ -32,7 +32,7 @@ class StubView:
 	func bucket_screen_extent() -> float:
 		return 100.0
 
-	func set_ladle(active: bool, _u: float, _depth: float) -> void:
+	func set_ladle(active: bool, _u: float, _depth: float, _bite := 0.0) -> void:
 		ladle_active = active
 
 	func skim_splash() -> void:

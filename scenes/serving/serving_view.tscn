@@ -49,9 +49,10 @@ radius = 0.19
 height = 0.95
 
 [sub_resource type="CylinderMesh" id="Mesh_ladle"]
-top_radius = 0.085
-bottom_radius = 0.075
-height = 0.025
+top_radius = 0.14
+bottom_radius = 0.125
+height = 0.022
+radial_segments = 20
 
 [sub_resource type="CylinderMesh" id="Mesh_stream"]
 top_radius = 0.016

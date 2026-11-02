@@ -15,7 +15,6 @@ script = ExtResource("1_main")
 [node name="Player" parent="." instance=ExtResource("3_player")]
 
 [node name="ServingView" parent="." instance=ExtResource("4_serving")]
-position = Vector3(0, -60, 0)
 standalone = false
 
 [node name="HUD" type="CanvasLayer" parent="."]

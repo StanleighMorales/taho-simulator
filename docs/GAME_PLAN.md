@@ -95,6 +95,10 @@ notice you from further away).
 
 ---
 
+> **See also [SERVING_RESEARCH.md](SERVING_RESEARCH.md)** — what a real magtataho's kit
+> and sequence actually are, where this section diverges from them, and a ranked list of
+> changes to make the serving feel hands-on rather than graded.
+
 ## 4. The serving minigame — the heart
 
 Six steps, one continuous flow, **15–25 seconds** total. Every step is one pointer gesture.

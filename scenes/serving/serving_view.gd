@@ -19,6 +19,19 @@ signal order_finished(pay: int, sago_used: float, arnibal_used: float)
 
 const TABLE_Y := 0.05
 
+## How the tools behave.
+##
+## The pointer sets a *target*; the tool chases it. The gap between the two is
+## the entire point. A tool that arrives exactly where the pointer is, exactly
+## when the pointer gets there, is a cursor — there is nothing between the
+## hand and the result, so there is nothing to feel. Lag, lean and load are
+## what make it read as something you are holding.
+const LADLE_SMOOTH := 0.055
+const LADLE_DRAG := 0.10
+const LADLE_LOAD_DRAG := 0.07
+const LADLE_TILT_SMOOTH := 0.08
+const LADLE_TILT_MAX := 24.0
+
 ## False when the town owns the flow.
 @export var standalone := true
 
@@ -34,6 +47,18 @@ var _last_pay := 0
 
 var _pulse := 0.0
 var _losing_tofu := false
+
+var _ladle_active := false
+var _ladle_target := Vector3.ZERO
+var _ladle_vel := Vector3.ZERO
+var _ladle_tilt := 0.0
+var _ladle_tilt_vel := 0.0
+## 0..1 of a full scoop. A loaded tool is slower to turn and slower to stop.
+var _ladle_load := 0.0
+## How much material the tool is cutting through right now, as the step sees
+## it. Liquid the view works out for itself; tofu only the step knows about.
+var _ladle_bite := 0.0
+var _ladle_dumping := false
 
 var _tofu_fill := 0.0
 var _contents_mat: ShaderMaterial
@@ -67,6 +92,7 @@ func _ready() -> void:
 	_cup_rest = _cup.position
 	_build_materials()
 	_build_sago()
+	_build_ladle()
 	if standalone:
 		_card_again.text = "tap for the next customer"
 		begin_order()
@@ -80,6 +106,8 @@ func _process(delta: float) -> void:
 		_pulse = maxf(0.0, _pulse - delta * 4.0)
 		var s := 1.0 + _pulse * 0.06
 		_cup.scale = Vector3(s, 1.0 + _pulse * 0.1, s)
+
+	_update_ladle(delta)
 
 	if _finished or _active == null:
 		return
@@ -261,21 +289,96 @@ func _bucket_mouth() -> Vector3:
 	return _bucket.global_position + Vector3(0, 0.5, 0)
 
 
-## `u` is sideways position in bucket radii, `depth` is how far below the
-## rim the ladle is held, in the same units.
-func set_ladle(active: bool, u: float, depth: float) -> void:
-	_ladle.visible = active
+## `u` is sideways position in bucket radii, `depth` is how far below the rim
+## the ladle is held, in the same units, and `bite` is how much material the
+## tool is working through, 0..1.
+##
+## This sets a target. The tool gets there in `_update_ladle`, late.
+func set_ladle(active: bool, u: float, depth: float, bite := 0.0) -> void:
+	_ladle_bite = clampf(bite, 0.0, 1.0)
 	if not active:
+		_ladle_active = false
+		_ladle.visible = false
 		return
-	var mouth := _bucket_mouth()
-	_ladle.position = Vector3(
-		_bucket.position.x + clampf(u, -1.1, 1.1) * 0.22,
-		mouth.y - clampf(depth, -0.4, 1.3) * 0.34,
+
+	# Local space throughout. The view is instanced into the town, so a global
+	# y written into a local position puts the ladle somewhere under the map —
+	# which is exactly what the old `mouth.y` here did once it was embedded.
+	var mouth_y := _bucket.position.y + 0.5
+	_ladle_target = Vector3(
+		# Tighter than the bucket radius: the scoop is wide now, so the full
+		# reach would hang it most of the way off the rim.
+		_bucket.position.x + clampf(u, -1.1, 1.1) * 0.16,
+		mouth_y - clampf(depth, -0.4, 1.3) * 0.34,
 		_bucket.position.z)
+
+	if not _ladle_active:
+		# First frame of a stroke starts under the hand, not wherever the last
+		# stroke happened to end.
+		_ladle_active = true
+		_ladle.visible = true
+		_ladle.position = _ladle_target
+		_ladle_vel = Vector3.ZERO
+		_ladle_tilt = 0.0
+		_ladle_tilt_vel = 0.0
+
+
+## The tool chases the hand instead of being the hand: it arrives late, leans
+## into the turn, drags when it is in the liquid, and gets heavier as it
+## fills, so lifting a full scoop out costs more than dipping an empty one in.
+func _update_ladle(delta: float) -> void:
+	if not _ladle_active:
+		_ladle_load = move_toward(_ladle_load, 0.0, delta * 4.0)
+		return
+
+	var submerged: bool = _water.visible and _ladle.global_position.y < _water_surface_y()
+	var resistance := maxf(_ladle_bite, 1.0 if submerged else 0.0)
+
+	var smooth := LADLE_SMOOTH + resistance * LADLE_DRAG + _ladle_load * LADLE_LOAD_DRAG
+	var sprung := _damp(_ladle.position, _ladle_target, _ladle_vel, smooth, delta)
+	_ladle.position = sprung[0]
+	_ladle_vel = sprung[1]
+
+	if resistance > 0.0:
+		_ladle_dumping = false
+		_ladle_load = minf(1.0, _ladle_load + delta * 1.6 * resistance)
+	elif _ladle_dumping:
+		_ladle_load = move_toward(_ladle_load, 0.0, delta * 4.0)
+
+	# Leading edge up, so the tool planes through the material rather than
+	# ploughing into it.
+	var lean := clampf(_ladle_vel.x * 7.0, -LADLE_TILT_MAX, LADLE_TILT_MAX)
+	lean *= 1.0 + resistance * 0.5 + _ladle_load * 0.4
+	var tilt := _damp(Vector3(_ladle_tilt, 0, 0), Vector3(lean, 0, 0),
+		Vector3(_ladle_tilt_vel, 0, 0), LADLE_TILT_SMOOTH, delta)
+	_ladle_tilt = tilt[0].x
+	_ladle_tilt_vel = tilt[1].x
+	_ladle.rotation_degrees.z = _ladle_tilt
+
+
+## Top of the water in world space. The mesh is a 0.12-high cylinder scaled by
+## the level, so half of that rides above its own origin.
+func _water_surface_y() -> float:
+	return _water.global_position.y + _water.scale.y * 0.06
+
+
+## Critically damped spring, returning [position, velocity]. The closed form
+## rather than a naive spring, because this has to stay stable on a browser
+## frame that occasionally takes 40ms.
+func _damp(current: Vector3, target: Vector3, vel: Vector3, smooth_time: float,
+		delta: float) -> Array:
+	var omega := 2.0 / maxf(smooth_time, 0.0001)
+	var x := omega * delta
+	var decay := 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x)
+	var change := current - target
+	var temp := (vel + change * omega) * delta
+	return [target + (change + temp) * decay, (vel - temp * omega) * decay]
 
 
 func skim_splash() -> void:
 	_pulse = 0.7
+	# Lifted clear and tipped out: the scoop is light again.
+	_ladle_dumping = true
 
 
 func set_cup_tofu(fill: float) -> void:
@@ -401,6 +504,31 @@ func _set_material(node: MeshInstance3D, color: Color, roughness: float) -> void
 	node.set_surface_override_material(0, mat)
 
 
+## The scoop gets a handle, and the handle is the point: a bare disc barely
+## shows which way it is leaning, so all the weight in `_update_ladle` would
+## be invisible. A handle turns a few degrees of tilt into a shape the eye
+## reads immediately.
+func _build_ladle() -> void:
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.80, 0.82, 0.85)
+	metal.metallic = 0.4
+	metal.roughness = 0.35
+	_ladle.set_surface_override_material(0, metal)
+
+	var shaft := BoxMesh.new()
+	shaft.size = Vector3(0.022, 0.022, 0.36)
+
+	var handle := MeshInstance3D.new()
+	handle.name = "Handle"
+	handle.mesh = shaft
+	handle.position = Vector3(0.0, 0.055, 0.21)
+	handle.rotation_degrees = Vector3(-17.0, 0.0, 0.0)
+	handle.material_override = StandardMaterial3D.new()
+	handle.material_override.albedo_color = Color(0.34, 0.26, 0.19)
+	handle.material_override.roughness = 0.8
+	_ladle.add_child(handle)
+
+
 func _build_sago() -> void:
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.013
@@ -439,6 +567,10 @@ func _reset_visuals() -> void:
 	set_cup_arnibal(0.0)
 	set_cup_mix(0.0)
 	pour_stream(0.0)
+	set_ladle(false, 0.0, 0.0)
+	_ladle_load = 0.0
+	_ladle_dumping = false
+	_ladle.rotation_degrees.z = 0.0
 	_cup.position = _cup_rest
 	_cup.scale = Vector3.ONE
 	_gauge_bg.visible = true
