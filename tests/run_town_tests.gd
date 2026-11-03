@@ -84,6 +84,15 @@ func _process(_delta: float) -> void:
 			# A paused tree would stop this test too.
 			if get_tree().paused:
 				_main._resume()
+
+			# Headless never gets the cursor, which is a page refused it.
+			_click(_main.get_viewport().get_visible_rect().get_center())
+			_check("the first click only asks for the cursor",
+				_player._walk_target == Vector3.INF)
+			_click(_main.get_viewport().get_visible_rect().get_center())
+			_check("and if it was refused, the next one still walks",
+				_player._walk_target != Vector3.INF)
+			_player._walk_target = Vector3.INF
 			_wait = SETTLE
 
 		1:
@@ -112,6 +121,11 @@ func _process(_delta: float) -> void:
 				"block=%.2f" % _main._serving._tofu.remaining())
 			_check("the street is hidden", _town.visible == false)
 			_check("the player is frozen", _player.frozen)
+			_tap_key(KEY_ESCAPE)
+			_check("Esc leaves a serve alone, so a held tool cannot miss its release",
+				not _main._menu.visible and not get_tree().paused)
+			if get_tree().paused:
+				_main._resume()
 			_player.hit_by_car(Vector3(0, 0, 8))
 			_check("a car cannot hit him while he is serving", _player.dead == false)
 			_check("nothing was paid yet", GameState.money == before)
@@ -201,6 +215,16 @@ func _process(_delta: float) -> void:
 
 
 # --- plumbing --------------------------------------------------------------
+
+## A left click from a real mouse, down and up.
+func _click(at: Vector2) -> void:
+	for down in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.position = at
+		ev.pressed = down
+		_main.get_viewport().push_input(ev)
+
 
 ## A whole key press, down and up, the way a keyboard sends it.
 func _tap_key(key: Key) -> void:

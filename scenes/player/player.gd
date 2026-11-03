@@ -51,13 +51,16 @@ var frozen := false:
 		if value:
 			velocity = Vector3.ZERO
 			_walk_target = Vector3.INF
+			# Its release goes to whatever froze him, not to us.
+			_dragging = false
 
 var _yaw := 8.0
 var _pitch := -22.0
 var _walk_target := Vector3.INF
-var _drag_from := Vector2.ZERO
 var _dragging := false
 var _drag_moved := 0.0
+## The last click asked for the cursor and was used up doing it.
+var _asked := false
 var _bob := 0.0
 var _distance := CAM_DISTANCE
 var first_person := false
@@ -176,15 +179,18 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			# The click that takes the cursor back is only that, not a walk
-			# or a sale.
+			# A click with the cursor free asks for it back, and the first one
+			# is only that, not a walk or a sale. If the cursor is still free
+			# by the next, the page was refused it (an embed without pointer
+			# lock, say), so that click asks again but works as a click.
 			if not captured() and event.device != InputEvent.DEVICE_ID_EMULATION:
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-				get_viewport().set_input_as_handled()
-				return
+				if not _asked:
+					_asked = true
+					get_viewport().set_input_as_handled()
+					return
 			_dragging = true
 			_drag_moved = 0.0
-			_drag_from = event.position
 		elif _dragging:
 			_dragging = false
 			# A captured pointer is the crosshair in the middle, and third
@@ -192,6 +198,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _drag_moved <= TAP_SLOP and (first_person or not captured()):
 				_tap_ground(get_viewport().get_visible_rect().get_center() if captured() else event.position)
 	elif event is InputEventMouseMotion and captured():
+		_asked = false
 		_drag_moved += event.screen_relative.length()
 		_look(event.screen_relative * MOUSE_LOOK)
 	elif event is InputEventMouseMotion and _dragging:
@@ -206,6 +213,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			zoom = 0.6
 		if zoom != 0.0:
 			_distance = clampf(_distance + zoom, 3.4, 10.0)
+
+
+## A press that ends while the game is paused never reaches us.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PAUSED:
+		_dragging = false
 
 
 func captured() -> bool:

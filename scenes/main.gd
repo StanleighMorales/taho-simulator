@@ -104,7 +104,8 @@ func _process(delta: float) -> void:
 
 	_target = _nearest_waiting(3.4)
 	_view.text = "[V]  Third person" if _player.first_person else "[V]  First person"
-	_crosshair.visible = _player.first_person
+	# A free cursor walks to where it is, not to the middle.
+	_crosshair.visible = _player.first_person and _player.captured()
 	_refresh_prompt()
 	_refresh_compass()
 
@@ -112,7 +113,9 @@ func _process(delta: float) -> void:
 ## Tapping the ground near a customer serves them too, so the game is
 ## playable with nothing but a pointer.
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
+	# Not mid-serve: a tool held when the game pauses would never hear the
+	# pointer let go, and stay stuck to it after Resume.
+	if event.is_action_pressed("ui_cancel") and _serving_now == null:
 		_open_menu()
 		return
 	if _serving_now != null or _target == null:
