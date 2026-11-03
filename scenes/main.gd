@@ -33,6 +33,7 @@ var _respawn_t := 0.0
 @onready var _compass: Label = $HUD/Compass
 @onready var _toast: Label = $HUD/Toast
 @onready var _controls: Label = $HUD/Controls
+@onready var _view: Button = $HUD/View
 
 var _town_env: WorldEnvironment
 var _serve_env: WorldEnvironment
@@ -54,7 +55,9 @@ func _ready() -> void:
 	_serve_environment = _serve_env.environment
 	_serve_env.environment = null
 
-	_controls.text = "WASD / arrows or tap the ground to walk   ·   drag to look   ·   E or tap to serve"
+	# The button is the phone's way to switch view; `V` is the keyboard's.
+	_view.pressed.connect(_player.toggle_view)
+	_controls.text = "WASD / arrows or tap the ground to walk   ·   drag to look   ·   E or tap to serve   ·   V to switch view"
 	for i in WAITING:
 		_spawn_customer()
 	_refresh_hud()
@@ -80,6 +83,7 @@ func _process(delta: float) -> void:
 		_respawn_t = 0.0
 
 	_target = _nearest_waiting(3.4)
+	_view.text = "Third person" if _player.first_person else "First person"
 	_refresh_prompt()
 	_refresh_compass()
 

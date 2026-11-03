@@ -88,12 +88,25 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -420.0
+offset_left = -540.0
 offset_top = -40.0
-offset_right = 420.0
+offset_right = 540.0
 offset_bottom = -12.0
 theme_override_colors/font_color = Color(0.82, 0.82, 0.86, 0.75)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.6)
 theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
+
+[node name="View" type="Button" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -170.0
+offset_top = 14.0
+offset_right = -20.0
+offset_bottom = 56.0
+grow_horizontal = 0
+focus_mode = 0
+theme_override_font_sizes/font_size = 19
+text = "First person"

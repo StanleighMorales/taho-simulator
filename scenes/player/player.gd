@@ -7,6 +7,9 @@ extends CharacterBody3D
 ## there. A drag orbits the camera, a tap walks — separated by a small pixel
 ## threshold, so neither gesture steals the other.
 ##
+## `V` (or the HUD button) swaps the follow camera for Lolo Ben's own eyes.
+## Everything else stays the same: drag to look, keys walk where you face.
+##
 ## The physics is a capsule against walls, nothing more. No ragdoll, no
 ## slopes worth the name.
 
@@ -25,6 +28,12 @@ const CAM_FOCUS := 1.35
 const PITCH_MIN := -46.0
 const PITCH_MAX := -6.0
 
+## First person: eyes just under the hat brim, and more room to look up and
+## down than the orbit has.
+const EYE_HEIGHT := 1.5
+const FP_PITCH_MIN := -70.0
+const FP_PITCH_MAX := 60.0
+
 ## True while the serving view has the screen; the player stands still and
 ## ignores input without having to be removed from the tree.
 var frozen := false:
@@ -42,6 +51,7 @@ var _dragging := false
 var _drag_moved := 0.0
 var _bob := 0.0
 var _distance := CAM_DISTANCE
+var first_person := false
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _rig: Node3D = $Rig
@@ -58,6 +68,17 @@ func _ready() -> void:
 
 func camera() -> Camera3D:
 	return _camera
+
+
+## Swap between the follow camera and his own eyes. The heading carries over;
+## the tilt starts fresh, because a good orbit angle stares at the pavement
+## from his eyes. His body stays for its shadow, but out of the way of them.
+func toggle_view() -> void:
+	first_person = not first_person
+	_pitch = -6.0 if first_person else -22.0
+	for mesh in _rig.get_children():
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY \
+			if first_person else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
 func _physics_process(delta: float) -> void:
@@ -119,6 +140,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		interact_pressed.emit()
 		return
 
+	if event.is_action_pressed("toggle_view"):
+		toggle_view()
+		return
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_dragging = true
@@ -132,7 +157,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_drag_moved += event.relative.length()
 		if _drag_moved > TAP_SLOP:
 			_yaw -= event.relative.x * 0.25
-			_pitch = clampf(_pitch - event.relative.y * 0.15, PITCH_MIN, PITCH_MAX)
+			var lo := FP_PITCH_MIN if first_person else PITCH_MIN
+			var hi := FP_PITCH_MAX if first_person else PITCH_MAX
+			_pitch = clampf(_pitch - event.relative.y * 0.15, lo, hi)
 	elif event is InputEventMouseButton and event.pressed:
 		var zoom := 0.0
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -162,12 +189,21 @@ func _process(delta: float) -> void:
 
 
 ## Orbit the player at `_yaw` / `_pitch`, pulling in if a building is in the
-## way so the view never ends up inside a wall.
+## way so the view never ends up inside a wall. In first person the same angles
+## aim his eyes instead, so switching keeps the way you were facing.
 func _place_camera(weight: float) -> void:
-	var focus := global_position + Vector3(0.0, CAM_FOCUS, 0.0)
 	var yaw := deg_to_rad(_yaw)
 	var pitch := deg_to_rad(_pitch)
 	var dir := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
+
+	if first_person:
+		# The rig's walk bob is his head bob too.
+		var eye := global_position + Vector3(0.0, EYE_HEIGHT + _rig.position.y, 0.0)
+		_camera.global_position = eye
+		_camera.look_at(eye - dir, Vector3.UP)
+		return
+
+	var focus := global_position + Vector3(0.0, CAM_FOCUS, 0.0)
 
 	var distance := _distance
 	var query := PhysicsRayQueryParameters3D.create(focus, focus + dir * (_distance + 0.4))

@@ -57,6 +57,18 @@ func _process(_delta: float) -> void:
 				_player.global_position.distance_to(_town.home_position) < 10.0)
 			_check("roaming camera is the active one", _player.camera().is_current())
 
+			_section("first person")
+			var body: GeometryInstance3D = _player.get_node("Rig").get_child(0)
+			_player.toggle_view()
+			_player._place_camera(1.0)
+			var eye: Vector3 = _player.global_position + Vector3(0, _player.EYE_HEIGHT, 0)
+			_check("the camera moves to his eyes",
+				_player.camera().global_position.distance_to(eye) < 0.1)
+			_check("his body only casts a shadow, so it is not in the way",
+				body.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY)
+			_player.toggle_view()
+			_check("switching back shows him again",
+				body.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 			_wait = SETTLE
 
 		1:

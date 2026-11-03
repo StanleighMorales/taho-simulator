@@ -15,7 +15,8 @@ The order ends when you drag the cup to the customer, who tells you what was wro
 it. When the buckets run dry, walk home and refill.
 
 **Controls:** WASD / arrows to walk, or tap the ground to walk there · drag to look ·
-`E` (or tap a customer you are standing next to) to serve. Everything in the serving
+`E` (or tap a customer you are standing next to) to serve · `V` (or the button top
+right) to switch between third and first person. Everything in the serving
 minigame is press / drag / release, so it plays the same with a mouse or a finger.
 
 **Play it: https://stanleighmorales.github.io/taho-simulator/**
@@ -53,7 +54,8 @@ drags in material, gets heavier as it fills and leans into the turn. Each one co
 runs of the same movement rather than pinning a number, so tuning stays free to move while
 the intent does not.
 
-The second is 27 assertions over the roaming layer: the town builds, customers appear,
+The second is 30 assertions over the roaming layer: the town builds, first person puts
+the camera at Lolo Ben's eyes, customers appear,
 standing next to one offers a sale, the switch into the serving view and back works, and
 the money and supplies move the right way. It runs as a **scene**, not with `--script` —
 a custom main loop does not register the `GameState` autoload that both it and the code
