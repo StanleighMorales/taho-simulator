@@ -74,6 +74,16 @@ func _process(_delta: float) -> void:
 			_player.toggle_view()
 			_check("switching back shows him again",
 				body.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+
+			_section("the menu")
+			_tap_key(KEY_ESCAPE)
+			_check("Esc opens the menu and stops the street",
+				_main._menu.visible and get_tree().paused)
+			_tap_key(KEY_ESCAPE)
+			_check("and Esc again carries on", not _main._menu.visible and not get_tree().paused)
+			# A paused tree would stop this test too.
+			if get_tree().paused:
+				_main._resume()
 			_wait = SETTLE
 
 		1:
@@ -191,6 +201,15 @@ func _process(_delta: float) -> void:
 
 
 # --- plumbing --------------------------------------------------------------
+
+## A whole key press, down and up, the way a keyboard sends it.
+func _tap_key(key: Key) -> void:
+	for down in [true, false]:
+		var ev := InputEventKey.new()
+		ev.keycode = key
+		ev.physical_keycode = key
+		ev.pressed = down
+		_main.get_viewport().push_input(ev)
 
 func _section(title: String) -> void:
 	print(title)

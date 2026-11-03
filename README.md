@@ -15,9 +15,12 @@ The order ends when you drag the cup to the customer, who tells you what was wro
 it. When the buckets run dry, walk home and refill. Mind the traffic on the way: the
 trucks do not stop for pedestrians, and one that hits Lolo Ben sends him back home.
 
-**Controls:** WASD / arrows to walk, or tap the ground to walk there · drag to look ·
-`E` (or tap a customer you are standing next to) to serve · `V` (or the button top
-right) to switch between third and first person. Everything in the serving
+**Controls:** WASD / arrows to walk, or tap the ground to walk there · mouse to look
+(drag on a phone) · `E` (or tap a customer you are standing next to) to serve · `V` to
+switch between third and first person · `Esc` for the menu. With a mouse the cursor is
+hidden while you walk, and in first person a click walks to the ring in the middle;
+`Esc` pauses and gives the cursor back, and Resume (or `Esc` again) takes it. In a browser,
+click the game once to hand it the mouse. Everything in the serving
 minigame is press / drag / release, so it plays the same with a mouse or a finger.
 
 **Play it: https://stanleighmorales.github.io/taho-simulator/**
@@ -55,8 +58,8 @@ drags in material, gets heavier as it fills and leans into the turn. Each one co
 runs of the same movement rather than pinning a number, so tuning stays free to move while
 the intent does not.
 
-The second is 37 assertions over the roaming layer: the town builds, first person puts
-the camera at Lolo Ben's eyes, the traffic drives and knocks him down, customers appear,
+The second is 39 assertions over the roaming layer: the town builds, first person puts
+the camera at Lolo Ben's eyes, `Esc` pauses and resumes, the traffic drives and knocks him down, customers appear,
 standing next to one offers a sale, the switch into the serving view and back works, and
 the money and supplies move the right way. It runs as a **scene**, not with `--script` —
 a custom main loop does not register the `GameState` autoload that both it and the code

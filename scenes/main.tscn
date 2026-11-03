@@ -1,9 +1,41 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/town/town.tscn" id="2_town"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
 [ext_resource type="PackedScene" path="res://scenes/serving/serving_view.tscn" id="4_serving"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ring"]
+draw_center = false
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.55)
+shadow_size = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu"]
+bg_color = Color(0.1, 0.11, 0.14, 0.94)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 36.0
+content_margin_top = 28.0
+content_margin_right = 36.0
+content_margin_bottom = 30.0
+
+[sub_resource type="InputEventAction" id="InputEventAction_esc"]
+action = &"ui_cancel"
+pressed = true
+
+[sub_resource type="Shortcut" id="Shortcut_esc"]
+events = [SubResource("InputEventAction_esc")]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
@@ -98,15 +130,73 @@ theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 
-[node name="View" type="Button" parent="HUD"]
+[node name="ViewHint" type="Label" parent="HUD"]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -170.0
+offset_left = -300.0
 offset_top = 14.0
 offset_right = -20.0
-offset_bottom = 56.0
+offset_bottom = 50.0
 grow_horizontal = 0
-focus_mode = 0
+theme_override_colors/font_color = Color(0.9, 0.92, 0.95, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
+theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 19
-text = "First person"
+text = "[V]  First person"
+horizontal_alignment = 2
+
+[node name="Crosshair" type="Panel" parent="HUD"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ring")
+
+[node name="Menu" type="CanvasLayer" parent="."]
+process_mode = 3
+layer = 5
+visible = false
+
+[node name="Dim" type="ColorRect" parent="Menu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="Menu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="Menu/Center"]
+custom_minimum_size = Vector2(300, 0)
+theme_override_styles/panel = SubResource("StyleBoxFlat_menu")
+
+[node name="Box" type="VBoxContainer" parent="Menu/Center/Panel"]
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Menu/Center/Panel/Box"]
+theme_override_colors/font_color = Color(1, 0.93, 0.78, 1)
+theme_override_font_sizes/font_size = 30
+text = "Paused"
+horizontal_alignment = 1
+
+[node name="Resume" type="Button" parent="Menu/Center/Panel/Box"]
+custom_minimum_size = Vector2(0, 48)
+theme_override_font_sizes/font_size = 21
+shortcut = SubResource("Shortcut_esc")
+shortcut_in_tooltip = false
+text = "Resume"
+
+[node name="Exit" type="Button" parent="Menu/Center/Panel/Box"]
+custom_minimum_size = Vector2(0, 48)
+theme_override_font_sizes/font_size = 21
+text = "Exit game"

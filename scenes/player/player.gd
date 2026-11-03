@@ -7,8 +7,11 @@ extends CharacterBody3D
 ## there. A drag orbits the camera, a tap walks — separated by a small pixel
 ## threshold, so neither gesture steals the other.
 ##
-## `V` (or the HUD button) swaps the follow camera for Lolo Ben's own eyes.
-## Everything else stays the same: drag to look, keys walk where you face.
+## `V` swaps the follow camera for Lolo Ben's own eyes.
+## With a mouse both views play like any shooter: the cursor is hidden and the
+## mouse turns the view, and in first person a click walks to the crosshair.
+## Esc (the menu, in main) gives the cursor back and a click takes it again.
+## A touch never takes it, so a phone keeps drag to look and tap to walk.
 ##
 ## The physics is a capsule against walls, nothing more. No ragdoll, no
 ## slopes worth the name.
@@ -35,6 +38,10 @@ const PITCH_MAX := -6.0
 const EYE_HEIGHT := 1.5
 const FP_PITCH_MIN := -70.0
 const FP_PITCH_MAX := 60.0
+
+## Degrees per pixel: a drag on the screen, and a captured mouse.
+const DRAG_LOOK := Vector2(0.25, 0.15)
+const MOUSE_LOOK := Vector2(0.15, 0.15)
 
 ## True while the serving view has the screen; the player stands still and
 ## ignores input without having to be removed from the tree.
@@ -169,20 +176,28 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
+			# The click that takes the cursor back is only that, not a walk
+			# or a sale.
+			if not captured() and event.device != InputEvent.DEVICE_ID_EMULATION:
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+				get_viewport().set_input_as_handled()
+				return
 			_dragging = true
 			_drag_moved = 0.0
 			_drag_from = event.position
 		elif _dragging:
 			_dragging = false
-			if _drag_moved <= TAP_SLOP:
-				_tap_ground(event.position)
+			# A captured pointer is the crosshair in the middle, and third
+			# person has none to aim with.
+			if _drag_moved <= TAP_SLOP and (first_person or not captured()):
+				_tap_ground(get_viewport().get_visible_rect().get_center() if captured() else event.position)
+	elif event is InputEventMouseMotion and captured():
+		_drag_moved += event.screen_relative.length()
+		_look(event.screen_relative * MOUSE_LOOK)
 	elif event is InputEventMouseMotion and _dragging:
 		_drag_moved += event.relative.length()
 		if _drag_moved > TAP_SLOP:
-			_yaw -= event.relative.x * 0.25
-			var lo := FP_PITCH_MIN if first_person else PITCH_MIN
-			var hi := FP_PITCH_MAX if first_person else PITCH_MAX
-			_pitch = clampf(_pitch - event.relative.y * 0.15, lo, hi)
+			_look(event.relative * DRAG_LOOK)
 	elif event is InputEventMouseButton and event.pressed:
 		var zoom := 0.0
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -191,6 +206,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			zoom = 0.6
 		if zoom != 0.0:
 			_distance = clampf(_distance + zoom, 3.4, 10.0)
+
+
+func captured() -> bool:
+	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+
+
+func _look(by: Vector2) -> void:
+	_yaw -= by.x
+	var lo := FP_PITCH_MIN if first_person else PITCH_MIN
+	var hi := FP_PITCH_MAX if first_person else PITCH_MAX
+	_pitch = clampf(_pitch - by.y, lo, hi)
 
 
 ## Walk to wherever on the ground the pointer landed. Only the world layer is

@@ -23,6 +23,8 @@ var _target: Node3D = null
 var _serving_now: Node3D = null
 var _toast_t := 0.0
 var _respawn_t := 0.0
+var _relock := false
+var _had_mouse := false
 
 @onready var _town: Node3D = $Town
 @onready var _player: CharacterBody3D = $Player
@@ -36,7 +38,9 @@ var _respawn_t := 0.0
 @onready var _compass: Label = $HUD/Compass
 @onready var _toast: Label = $HUD/Toast
 @onready var _controls: Label = $HUD/Controls
-@onready var _view: Button = $HUD/View
+@onready var _view: Label = $HUD/ViewHint
+@onready var _crosshair: Control = $HUD/Crosshair
+@onready var _menu: CanvasLayer = $Menu
 
 var _town_env: WorldEnvironment
 var _serve_env: WorldEnvironment
@@ -59,9 +63,14 @@ func _ready() -> void:
 	_serve_environment = _serve_env.environment
 	_serve_env.environment = null
 
-	# The button is the phone's way to switch view; `V` is the keyboard's.
-	_view.pressed.connect(_player.toggle_view)
-	_controls.text = "WASD / arrows or tap the ground to walk   ·   drag to look   ·   E or tap to serve   ·   V to switch view"
+	_menu.get_node("Center/Panel/Box/Resume").pressed.connect(_resume)
+	var exit: Button = _menu.get_node("Center/Panel/Box/Exit")
+	exit.pressed.connect(get_tree().quit)
+	# A page cannot close its own tab, and a quit there only freezes the canvas.
+	exit.visible = not OS.has_feature("web")
+	_controls.text = "WASD / arrows or tap the ground to walk   ·   mouse or drag to look   ·   E or tap to serve   ·   V to switch view   ·   Esc for the menu"
+	# A browser refuses this until the first click, which then takes it.
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	for i in WAITING:
 		_spawn_customer()
 	_refresh_hud()
@@ -86,8 +95,16 @@ func _process(delta: float) -> void:
 	else:
 		_respawn_t = 0.0
 
+	# A browser takes the cursor back on Esc itself, and the game may never
+	# see the key, so losing the cursor is what opens the menu.
+	if _had_mouse and not _player.captured():
+		_open_menu()
+		return
+	_had_mouse = _player.captured()
+
 	_target = _nearest_waiting(3.4)
-	_view.text = "Third person" if _player.first_person else "First person"
+	_view.text = "[V]  Third person" if _player.first_person else "[V]  First person"
+	_crosshair.visible = _player.first_person
 	_refresh_prompt()
 	_refresh_compass()
 
@@ -95,6 +112,9 @@ func _process(delta: float) -> void:
 ## Tapping the ground near a customer serves them too, so the game is
 ## playable with nothing but a pointer.
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_open_menu()
+		return
 	if _serving_now != null or _target == null:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -118,6 +138,11 @@ func _on_interact() -> void:
 func _begin_serving(customer: Node3D) -> void:
 	_serving_now = customer
 	_player.frozen = true
+	# The minigame is all pointer, so it gets the cursor; the street takes it
+	# back after if it had it.
+	_relock = _player.captured()
+	_had_mouse = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_town.visible = false
 	_player.visible = false
 	_hud.visible = false
@@ -142,6 +167,8 @@ func _on_order_finished(pay: int, tofu_used: float, sago_used: float, arnibal_us
 	_player.visible = true
 	_hud.visible = true
 	_player.camera().make_current()
+	if _relock:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	# Deferred: the click that dismissed the grade card is still propagating,
 	# and an unfrozen player would read it as "walk over there".
 	_player.set_deferred("frozen", false)
@@ -153,8 +180,25 @@ func _on_order_finished(pay: int, tofu_used: float, sago_used: float, arnibal_us
 
 func _on_player_died() -> void:
 	_say("Nasagasaan si Lolo Ben! Hit by a car. Back home.")
-	await get_tree().create_timer(DOWN_TIME).timeout
+	await get_tree().create_timer(DOWN_TIME, false).timeout
 	_player.revive(_town.player_start + Vector3(0, 0.2, 0))
+
+
+# --- the menu --------------------------------------------------------------
+
+## Esc stops everything, cars included, and gives the cursor back.
+func _open_menu() -> void:
+	_had_mouse = false
+	_menu.visible = true
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _resume() -> void:
+	_menu.visible = false
+	get_tree().paused = false
+	if _serving_now == null:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _on_home_entered(body: Node) -> void:
