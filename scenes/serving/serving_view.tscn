@@ -4,13 +4,16 @@
 
 [sub_resource type="Environment" id="Env_room"]
 background_mode = 1
-background_color = Color(0.11, 0.12, 0.16, 1)
+background_color = Color(0.62, 0.72, 0.82, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.55, 0.58, 0.68, 1)
-ambient_light_energy = 0.55
+ambient_light_color = Color(0.52, 0.55, 0.62, 1)
+ambient_light_energy = 0.45
 
-[sub_resource type="BoxMesh" id="Mesh_table"]
-size = Vector3(2.6, 0.1, 1.3)
+[sub_resource type="PlaneMesh" id="Mesh_ground"]
+size = Vector2(8, 6)
+
+[sub_resource type="BoxMesh" id="Mesh_curb"]
+size = Vector3(8, 0.14, 0.35)
 
 [sub_resource type="CylinderMesh" id="Mesh_bucket"]
 top_radius = 0.26
@@ -38,15 +41,13 @@ top_radius = 0.14
 bottom_radius = 0.105
 height = 0.28
 
-[sub_resource type="SphereMesh" id="Mesh_sago"]
-radius = 0.014
-height = 0.028
-radial_segments = 6
-rings = 3
-
 [sub_resource type="CapsuleMesh" id="Mesh_customer"]
 radius = 0.19
 height = 0.95
+
+[sub_resource type="SphereMesh" id="Mesh_head"]
+radius = 0.12
+height = 0.24
 
 [sub_resource type="CylinderMesh" id="Mesh_ladle"]
 top_radius = 0.14
@@ -54,22 +55,19 @@ bottom_radius = 0.125
 height = 0.022
 radial_segments = 20
 
-[sub_resource type="CylinderMesh" id="Mesh_small_bucket"]
-top_radius = 0.2
-bottom_radius = 0.17
-height = 0.34
+[sub_resource type="CylinderMesh" id="Mesh_syrup_bucket"]
+top_radius = 0.24
+bottom_radius = 0.2
+height = 0.44
 cap_top = false
 
 [sub_resource type="CylinderMesh" id="Mesh_compartment"]
-top_radius = 0.085
-bottom_radius = 0.075
-height = 0.26
+top_radius = 0.1
+bottom_radius = 0.085
+height = 0.36
 
 [sub_resource type="BoxMesh" id="Mesh_divider"]
-size = Vector3(0.012, 0.3, 0.34)
-
-[sub_resource type="BoxMesh" id="Mesh_cashbox"]
-size = Vector3(0.2, 0.1, 0.13)
+size = Vector3(0.012, 0.42, 0.44)
 
 [sub_resource type="CylinderMesh" id="Mesh_lid"]
 top_radius = 0.27
@@ -94,23 +92,29 @@ script = ExtResource("1_view")
 environment = SubResource("Env_room")
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.643, 0.766, 0, -0.766, 0.643, 0.12, 1.74, 1.56)
+transform = Transform3D(1, 0, 0, 0, 0.643, 0.766, 0, -0.766, 0.643, 0, 1.5, 1.35)
 fov = 58.0
 
 [node name="Key" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.574, 0.819, 0, -0.819, 0.574, 0, 3, 0.6)
-light_energy = 1.15
+position = Vector3(0, 3, 0.6)
+rotation = Vector3(-0.96, 0.44, 0)
+light_energy = 0.9
+shadow_enabled = true
 
 [node name="Fill" type="OmniLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 1.1, 1.4)
-light_energy = 0.5
+light_energy = 0.3
 omni_range = 6.0
 
-[node name="Table" type="MeshInstance3D" parent="."]
-mesh = SubResource("Mesh_table")
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("Mesh_ground")
+
+[node name="Curb" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, -1.35)
+mesh = SubResource("Mesh_curb")
 
 [node name="Bucket" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.62, 0.05, 0.05)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0, -0.1)
 
 [node name="Body" type="MeshInstance3D" parent="Bucket"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
@@ -131,36 +135,32 @@ mesh = SubResource("Mesh_lid")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.38, 0)
 mesh = SubResource("Mesh_water")
 
-[node name="SmallBucket" type="Node3D" parent="."]
-position = Vector3(0.56, 0.05, -0.04)
+[node name="SyrupBucket" type="Node3D" parent="."]
+position = Vector3(0.55, 0, -0.1)
 
-[node name="Body" type="MeshInstance3D" parent="SmallBucket"]
-position = Vector3(0, 0.17, 0)
-mesh = SubResource("Mesh_small_bucket")
+[node name="Body" type="MeshInstance3D" parent="SyrupBucket"]
+position = Vector3(0, 0.22, 0)
+mesh = SubResource("Mesh_syrup_bucket")
 
-[node name="Divider" type="MeshInstance3D" parent="SmallBucket"]
-position = Vector3(0, 0.15, 0)
+[node name="Divider" type="MeshInstance3D" parent="SyrupBucket"]
+position = Vector3(0, 0.21, 0)
 mesh = SubResource("Mesh_divider")
 
-[node name="Sago" type="MeshInstance3D" parent="SmallBucket"]
-position = Vector3(-0.088, 0.13, 0)
+[node name="Sago" type="MeshInstance3D" parent="SyrupBucket"]
+position = Vector3(-0.11, 0.18, 0)
 mesh = SubResource("Mesh_compartment")
 
-[node name="Arnibal" type="MeshInstance3D" parent="SmallBucket"]
-position = Vector3(0.088, 0.13, 0)
+[node name="Arnibal" type="MeshInstance3D" parent="SyrupBucket"]
+position = Vector3(0.11, 0.18, 0)
 mesh = SubResource("Mesh_compartment")
-
-[node name="CashBox" type="MeshInstance3D" parent="SmallBucket"]
-position = Vector3(0, 0.05, 0.3)
-mesh = SubResource("Mesh_cashbox")
 
 [node name="Dipper" type="MeshInstance3D" parent="."]
-position = Vector3(0.56, 0.52, -0.04)
+position = Vector3(0.55, 0.52, -0.1)
 visible = false
 mesh = SubResource("Mesh_dipper")
 
 [node name="Cup" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 0.05, 0.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.05)
 
 [node name="Shell" type="MeshInstance3D" parent="Cup"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
@@ -174,24 +174,28 @@ mesh = SubResource("Mesh_contents")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)
 
 [node name="PourStream" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 0.52, 0.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52, 0.05)
 mesh = SubResource("Mesh_stream")
 
 [node name="Steam" type="CPUParticles3D" parent="."]
-position = Vector3(-0.62, 0.6, 0.05)
+position = Vector3(-0.55, 0.55, -0.1)
 emitting = false
 
 [node name="Ladle" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.62, 0.62, 0.05)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0.62, -0.1)
 visible = false
 mesh = SubResource("Mesh_ladle")
 
 [node name="Customer" type="Node3D" parent="."]
-position = Vector3(1.12, 0, -0.52)
+position = Vector3(0.3, 0, -1.25)
 
 [node name="Body" type="MeshInstance3D" parent="Customer"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0)
 mesh = SubResource("Mesh_customer")
+
+[node name="Head" type="MeshInstance3D" parent="Customer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.22, 0)
+mesh = SubResource("Mesh_head")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -205,54 +209,67 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 0.75)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 24
 
-[node name="Title" type="Label" parent="UI"]
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -340.0
-offset_top = 22.0
-offset_right = 340.0
-offset_bottom = 68.0
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
-theme_override_constants/outline_size = 8
+[node name="Order" type="Label" parent="UI"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -420.0
+offset_top = 120.0
+offset_right = -24.0
+offset_bottom = 170.0
+theme_override_colors/font_color = Color(1, 0.96, 0.84, 1)
+theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.05, 0.9)
+theme_override_constants/outline_size = 10
 theme_override_font_sizes/font_size = 34
-horizontal_alignment = 1
+horizontal_alignment = 2
 
 [node name="Hint" type="Label" parent="UI"]
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -340.0
-offset_top = 68.0
-offset_right = 340.0
-offset_bottom = 104.0
-theme_override_colors/font_color = Color(0.88, 0.88, 0.9, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 20
+offset_left = -420.0
+offset_top = 24.0
+offset_right = 420.0
+offset_bottom = 64.0
+theme_override_colors/font_color = Color(0.95, 0.95, 0.97, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 
 [node name="GaugeBg" type="ColorRect" parent="UI"]
+visible = false
 anchor_left = 0.5
-anchor_top = 1.0
 anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -230.0
-offset_top = -92.0
-offset_right = 230.0
-offset_bottom = -58.0
+offset_left = -200.0
+offset_top = 72.0
+offset_right = 200.0
+offset_bottom = 94.0
+mouse_filter = 2
 color = Color(0, 0, 0, 0.45)
 
 [node name="GaugeFill" type="ColorRect" parent="UI/GaugeBg"]
 offset_right = 10.0
-offset_bottom = 34.0
+offset_bottom = 22.0
+mouse_filter = 2
 color = Color(0.98, 0.76, 0.36, 0.95)
 
 [node name="GaugeTarget" type="ColorRect" parent="UI/GaugeBg"]
 offset_left = 100.0
-offset_top = -6.0
+offset_top = -5.0
 offset_right = 104.0
-offset_bottom = 40.0
+offset_bottom = 27.0
+mouse_filter = 2
 color = Color(0.45, 1, 0.6, 1)
+
+[node name="GaugeName" type="Label" parent="UI/GaugeBg"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Card" type="PanelContainer" parent="UI"]
 visible = false

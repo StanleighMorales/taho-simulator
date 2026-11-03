@@ -35,6 +35,9 @@ var _after_one_frame := 0.0
 var _residual_dry := 0.0
 var _residual_wet := 0.0
 var _residual_loaded := 0.0
+var _x_before := 0.0
+var _frame_delta := 0.0
+var _top_speed := 0.0
 
 
 func _ready() -> void:
@@ -59,7 +62,11 @@ func _ready() -> void:
 	_right_x = _x()
 
 
-func _process(_delta: float) -> void:
+var _delta := 0.0
+
+
+func _process(delta: float) -> void:
+	_delta = delta
 	if _done:
 		return
 	if _wait > 0:
@@ -142,7 +149,7 @@ func _process(_delta: float) -> void:
 				return
 
 			_section("tipping it out empties it")
-			_view.skim_splash()
+			_view.tip_ladle("ground")
 
 		8:
 			if not _poll("the scoop is light again after it is tipped out",
@@ -162,6 +169,31 @@ func _process(_delta: float) -> void:
 			_check("and lighter when it is full",
 				_view._dipper.load_drag < _view._scoop.load_drag,
 				"dipper=%.3f scoop=%.3f" % [_view._dipper.load_drag, _view._scoop.load_drag])
+
+			_section("tofu has a speed limit")
+			# A hand flung across the whole bucket, through tofu. However fast
+			# the hand, the scoop goes no faster than it can cut.
+			_view._scoop.carried = 0.0
+			_park(-1.0)
+			_view.set_ladle(true, 1.0, 0.0, 1.0)
+			_polled = 0
+
+		9:
+			# Measured frame to frame: the view moves during this frame, and
+			# this node runs before its child, so the change shows next frame.
+			if _polled > 0 and _frame_delta > 0.0:
+				_top_speed = maxf(_top_speed, absf(_x() - _x_before) / _frame_delta)
+			_x_before = _x()
+			_frame_delta = _delta
+			_polled += 1
+			if _polled < 30:
+				return
+			_polled = 0
+			_check("the scoop cannot be pushed through tofu faster than it cuts",
+				_top_speed <= _view._scoop.cut_speed * 1.05,
+				"top=%.3f m/s limit=%.3f" % [_top_speed, _view._scoop.cut_speed])
+			_check("and it is still behind the hand",
+				_x() < _right_x - 0.005, "x=%.3f hand=%.3f" % [_x(), _right_x])
 			_report()
 			return
 

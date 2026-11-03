@@ -1,16 +1,18 @@
 class_name Grading
 extends RefCounted
 
-## Turns six step scores into a Sarap rating, a price and a tip.
+## Turns the step scores into a Sarap rating, a price and a tip.
 ##
 ## Weights say what the game cares about: the two pours that decide how it
 ## tastes matter most, and the handover is not scored at all.
 
 const WEIGHTS := {
+	# Getting the size right matters, but it is listening, not cooking.
+	"Pick the cup": 0.5,
 	# Opening the lid and handing the cup over are not skills. Weighting them
-	# would only dilute the five steps that decide how it tastes.
+	# would only dilute the steps that decide how it tastes.
 	"Open the bucket": 0.0,
-	"Skim the water": 1.0,
+	"Drain the water": 1.0,
 	"Shave the tofu": 1.4,
 	"Add the sago": 1.2,
 	"Pour the arnibal": 1.5,
@@ -18,8 +20,8 @@ const WEIGHTS := {
 	"Serve it": 0.0,
 }
 
-const BASE_PRICE := 15
-const MAX_TIP := 10
+## A perfect cup earns a tip of up to half its price.
+const TIP_SHARE := 0.5
 
 
 static func sarap(steps: Array) -> float:
@@ -44,15 +46,29 @@ static func grade_label(value: float) -> String:
 	return "Patawad po"
 
 
-static func reaction(value: float) -> String:
+## What the customer says. A good cup gets praise; anything less gets the one
+## thing that was most wrong with it, so the player learns what to fix by
+## tasting, not by reading a score breakdown.
+static func reaction(value: float, steps: Array = []) -> String:
 	if value >= 0.85:
 		return "\"Ahhh! Ganito dapat, Lolo.\""
+	var worst: ServingStep = null
+	for step in steps:
+		if WEIGHTS.get(step.title, 0.0) <= 0.0 or step.complaint() == "":
+			continue
+		if worst == null or step.score < worst.score:
+			worst = step
+	if worst != null and worst.score < 0.85:
+		return worst.complaint()
 	if value >= 0.6:
 		return "\"Salamat po!\""
-	if value >= 0.35:
-		return "\"Okay lang... konti pa sana ang arnibal.\""
 	return "\"Uhm. Salamat na lang po.\""
 
 
-static func payment(value: float) -> int:
-	return BASE_PRICE + int(round(MAX_TIP * maxf(0.0, (value - 0.45) / 0.55)))
+## The cup's price, always — a bad cup is still paid for — plus the tip.
+static func payment(value: float, price := 20) -> int:
+	return price + tip(value, price)
+
+
+static func tip(value: float, price := 20) -> int:
+	return int(round(price * TIP_SHARE * maxf(0.0, (value - 0.45) / 0.55)))

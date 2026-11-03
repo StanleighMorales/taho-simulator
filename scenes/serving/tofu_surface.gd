@@ -65,11 +65,13 @@ func set_level(fraction: float) -> void:
 ## cannot dig a well. So grinding away at one spot stops paying almost at
 ## once, and the only way to keep taking tofu is to work the whole bucket
 ## down together — which is what a vendor does, and now the player has to.
-func carve(u: float, effort: float) -> float:
+func carve(u: float, effort: float, thickness := 1.0) -> float:
 	if effort <= 0.0:
 		return 0.0
 
-	var limit := maxf(0.0, highest() - LAYER)
+	# A deeper bite cuts a thicker layer, but it is still a flat blade riding
+	# the high points.
+	var limit := maxf(0.0, highest() - LAYER * thickness)
 	var taken := 0.0
 	for i in _covered(u):
 		var allow := maxf(0.0, heights[i] - limit)

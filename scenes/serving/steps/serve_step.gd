@@ -1,7 +1,7 @@
 class_name ServeStep
 extends ServingStep
 
-## Step 6 — hand it over.
+## Step 8 — hand it over.
 ##
 ## Scored on nothing: after five judged steps, the handover should be relief,
 ## not one more test.

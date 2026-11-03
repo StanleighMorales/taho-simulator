@@ -1,7 +1,7 @@
 class_name LidStep
 extends ServingStep
 
-## Step 0 — open the bucket.
+## Step 2 — open the bucket.
 ##
 ## The tofu bucket has a hinged lid in the centre, and lifting it is how a
 ## serve actually begins. It is here for three reasons: it is the moment the
@@ -24,6 +24,7 @@ var _opened := false
 
 func _init() -> void:
 	title = "Open the bucket"
+	focus = "tofu"
 
 
 func begin() -> void:
@@ -55,17 +56,21 @@ func update(_delta: float) -> void:
 	_finish(1.0)
 
 
-func hint() -> String:
-	if open <= 0.0:
-		return "Drag upward to lift the lid."
-	if open < 1.0:
-		return "Keep going..."
-	return "Warm."
-
-
 func gauge() -> float:
 	return open
 
 
 func gauge_target() -> float:
 	return 1.0
+
+
+func gauge_name() -> String:
+	return "Lid"
+
+
+func hint() -> String:
+	if open <= 0.0:
+		return "Drag upward to lift the lid."
+	if open < 1.0:
+		return "Keep going..."
+	return "Warm."

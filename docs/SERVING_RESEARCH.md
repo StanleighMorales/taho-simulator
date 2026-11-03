@@ -323,6 +323,38 @@ The cash box is in the small bucket. Counting out coins is a hands-on verb the g
 version of, and §5 of the plan already wants the kid counting exact coins. A drawer with
 coins in it that you pick from is a better ending to an order than a number going up.
 
+### 9. Put the depth in the hand — ✅ **done, 2026-11-03**
+Playtest note: *"holding my clicks that lets the scoop go down is kind of weird."* It was.
+The scoop sank on a timer while the pointer was held still, so depth was the one thing
+about the scoop the hand did not control — and it was the thing the drain step is judged
+on.
+
+**What other scooping games do.** The ones that feel right map the tool to the hand and
+let the material push back. *Papa's Scooperia* makes a scoop by dragging the scooper
+through the bin, with smooth, steady movement giving the better scoop. *Cooking Mama*
+asks for the motion of the real action (stir in circles, chop up and down). Swink's
+*Game Feel* calls the gap between hand and object the mapping, and a direct mapping is
+the strong case. None of them puts the key quantity on a timer.
+
+**What shipped.**
+- **Drag down to push the scoop in.** Depth follows the hand's vertical drag from where it
+  went in, both ways. Holding still now holds still.
+- **The tofu pushes back.** Past the top of the tofu only 30% of the push gets through, so
+  the scoop all but stops while the hand moves on. That is the cue to lift, and it can be
+  felt without reading a gauge. There is about a finger's width of give before it breaks
+  the tofu.
+- **Pull up to lift.** Rising back above the entry point (or leaving the bucket sideways)
+  brings the scoop out with what it caught. The whole trip is one stroke, down, up and
+  over, which is the shape of the real action.
+- **Shaving uses the same axis.** Pushing down while sweeping is a deeper bite, with a
+  little slack so the wobble of a sideways sweep does not roughen the sheets.
+- **Breaking the surface is an event.** A splash going in, a bigger one coming out full,
+  a white puff when the scoop meets the tofu, and a buzz on phones.
+- **The water is clearer** (alpha 0.5, down from 0.85) so the scoop can be watched going
+  through it. **The serve camera leans in**: the bucket is about a third bigger on screen
+  and its mouth sits clear of the hint and gauge. There is still street on the left to
+  throw water on.
+
 ---
 
 ## 5. What this buys per pillar
@@ -385,5 +417,11 @@ coins in it that you pick from is a better ending to an order than a number goin
 - [Hakka Kitchen (arXiv)](https://arxiv.org/html/2607.26183v1) — controller mediation
   disconnects players from direct physical practice; hand tracking and physics-based
   manipulation instead.
+- [Flipline Blog — Papa's Scooperia To Go](https://flipline.com/blog/?p=10779) — a scoop is
+  made by dragging the scooper through the bin; rushing it spoils the scoop.
+- [Cooking Mama: Cook Off — Wikipedia](https://en.wikipedia.org/wiki/Cooking_Mama:_Cook_Off)
+  — gestures that copy the real motion.
+- [Principles of Virtual Sensation — Game Developer](https://www.gamedeveloper.com/design/principles-of-virtual-sensation)
+  — Swink on input, response and mapping.
 - [Designing Controlled Chaos — BarStuds](https://barstuds-studios.itch.io/cover-my-buns/devlog/1489732/designing-controlled-chaos-building-a-physical-cooking-game-that-fights-back)
   — removing automation so small mistakes escalate; friction as the gameplay.

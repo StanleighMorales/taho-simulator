@@ -56,6 +56,7 @@ func _process(_delta: float) -> void:
 			_check("the player starts near home",
 				_player.global_position.distance_to(_town.home_position) < 10.0)
 			_check("roaming camera is the active one", _player.camera().is_current())
+
 			_wait = SETTLE
 
 		1:
@@ -91,16 +92,17 @@ func _process(_delta: float) -> void:
 			# Hand back a finished order the way the view does: a decent cup
 			# with a heavy hand on the arnibal.
 			var money_before: int = GameState.money
-			var tofu_before: int = GameState.tofu
-			var arnibal_before: int = GameState.arnibal
-			_main._on_order_finished(22, 0.6, 1.4)
+			var tofu_before: float = GameState.tofu
+			var arnibal_before: float = GameState.arnibal
+			_main._on_order_finished(22, 1.8, 0.6, 1.4)
 
 			_check("the sale was banked", GameState.money == money_before + 22,
 				"money=%d" % GameState.money)
-			_check("a cup of tofu left the bucket", GameState.tofu == tofu_before - 1)
-			_check("a heavy hand costs two arnibal",
-				GameState.arnibal == arnibal_before - 2,
-				"arnibal=%d" % GameState.arnibal)
+			_check("a P50 cup takes a P50 cup's worth of tofu",
+				is_equal_approx(GameState.tofu, tofu_before - 1.8), "tofu=%.2f" % GameState.tofu)
+			_check("a heavy hand costs more arnibal than a cup",
+				is_equal_approx(GameState.arnibal, arnibal_before - 1.4),
+				"arnibal=%.2f" % GameState.arnibal)
 			_check("the street is back", _town.visible)
 			_check("the serving view let go", _main._serving.visible == false)
 			_check("the customer stops asking", _subject.is_waiting() == false)
@@ -114,7 +116,7 @@ func _process(_delta: float) -> void:
 
 			# The bucket the player looks into has to be the bucket they are
 			# carrying, or the block is just decoration.
-			GameState.tofu = 6
+			GameState.tofu = 6.0
 			_main._serving.begin_order()
 			_check("a half-used load shows as a half-full bucket",
 				absf(_main._serving._tofu.remaining() - 0.5) < 0.05,
@@ -122,7 +124,7 @@ func _process(_delta: float) -> void:
 			_main._serving.end_order()
 			_player.camera().make_current()
 
-			GameState.tofu = 0
+			GameState.tofu = 0.0
 			_check("an empty bucket cannot serve", GameState.can_serve() == false)
 			_main._target = _customers.get_child(0)
 			_main._on_interact()
@@ -133,7 +135,7 @@ func _process(_delta: float) -> void:
 
 		5:
 			_check("standing on the porch refills the buckets",
-				GameState.tofu == GameState.LOAD_SIZE, "tofu=%d" % GameState.tofu)
+				GameState.tofu == GameState.LOAD_SIZE, "tofu=%.1f" % GameState.tofu)
 			_check("sago and arnibal came back too",
 				GameState.sago == GameState.LOAD_SIZE
 				and GameState.arnibal == GameState.LOAD_SIZE)

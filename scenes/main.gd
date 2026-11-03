@@ -118,9 +118,9 @@ func _begin_serving(customer: Node3D) -> void:
 	_serving.begin_order()
 
 
-func _on_order_finished(pay: int, sago_used: float, arnibal_used: float) -> void:
+func _on_order_finished(pay: int, tofu_used: float, sago_used: float, arnibal_used: float) -> void:
 	GameState.earn(pay)
-	GameState.spend_supplies(sago_used, arnibal_used)
+	GameState.spend_supplies(tofu_used, sago_used, arnibal_used)
 
 	if _serving_now != null and is_instance_valid(_serving_now):
 		_serving_now.mark_served()

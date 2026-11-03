@@ -9,6 +9,10 @@ extends RefCounted
 ## signals, which keeps step ordering in one readable place.
 
 var title := ""
+## Where this step works: "cups", "tofu", "syrup", "cup", or "" for the whole
+## setup. The view frames and lights that part, so the player's eye is
+## already where the hand needs to go.
+var focus := ""
 var score := 0.0
 var complete := false
 
@@ -54,6 +58,28 @@ func gauge() -> float:
 ## 0..1 marker position on the gauge, or -1 for none.
 func gauge_target() -> float:
 	return -1.0
+
+
+## What the gauge is measuring, written on the bar.
+func gauge_name() -> String:
+	return ""
+
+
+## The part of the setup in use right now, for the glow. A step that works in
+## one place is always there.
+func working() -> String:
+	return focus
+
+
+## The cup has been handed over: score whatever this tool did. Steps that end
+## on their own never see this.
+func settle() -> void:
+	pass
+
+
+## What the customer says when this is the worst thing about the cup.
+func complaint() -> String:
+	return ""
 
 
 func _finish(quality: float) -> void:

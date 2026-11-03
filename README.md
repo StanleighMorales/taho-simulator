@@ -3,8 +3,16 @@
 A 3D browser game. You play **Lolo Ben**, an old taho vendor working a Metro Manila
 neighbourhood for 7 days to save up for his granddaughter's graduation photo.
 
-Walk the street, find whoever is shouting for taho, set the buckets down and serve
-them. When the buckets run dry, walk home and refill.
+Walk the street, find whoever is shouting for taho, set the buckets down on the pavement
+and serve them: pick the P10, P20 or P50 cup they asked for and open the lid, then work the
+two buckets in any order you like. The scoop goes where your hand pushes it: drag down
+and it goes down through the water easily, then all but stops when it meets the tofu.
+It takes whatever it touches: water while there is water on top, sheets of tofu once
+there is not, and pushing down while you sweep bites deeper, which fills it faster but
+rougher. Pull up (or off the side of the bucket) to lift it out, and let go where you
+want it tipped. Go back for more tofu after the syrup if the cup looks short.
+The order ends when you drag the cup to the customer, who tells you what was wrong with
+it. When the buckets run dry, walk home and refill.
 
 **Controls:** WASD / arrows to walk, or tap the ground to walk there · drag to look ·
 `E` (or tap a customer you are standing next to) to serve. Everything in the serving
@@ -34,11 +42,13 @@ godot --headless res://tests/town_tests.tscn
 godot --headless res://tests/feel_tests.tscn
 ```
 
-The first is 60 assertions covering the tofu surface, every serving step's mechanic, and the grading. They
-assert the *intent* of each step (smooth beats jerky, stopping on target beats
-overloading), so a tuning change that breaks the point of a step fails the suite.
+The first is 111 assertions covering the tofu surface, every tool's mechanic, the free-order
+routing, and the grading. They assert the *intent* of each mechanic (smooth beats jerky,
+water on the street beats water in the cup, stopping at full beats piling on, a P50 cup is
+more trips than a P10, tofu can still go in after the sago), so a tuning change that breaks
+the point of one fails the suite.
 
-The third is 15 assertions on how the tools *feel* — that the ladle lags the hand,
+The third is 17 assertions on how the tools *feel* — that the ladle lags the hand,
 drags in material, gets heavier as it fills and leans into the turn. Each one compares two
 runs of the same movement rather than pinning a number, so tuning stays free to move while
 the intent does not.
