@@ -2,57 +2,119 @@ extends Node3D
 
 ## The neighbourhood Lolo Ben works.
 ##
-## Built in code rather than in a .tscn on purpose. The whole town is boxes,
-## and a hand-written .tscn full of Transform3D literals is exactly where this
-## project has already lost an afternoon: Godot writes a basis **row by row**,
-## so a transform typed as columns silently inverts. Setting `position` and
-## `rotation_degrees` here cannot go wrong that way, and the layout stays
-## readable as data.
+## Laid out as a map of 10 m tiles (`MAP`), one letter a tile, and built from
+## Kenney's City Kit (CC0, in assets/kenney/city). Reading the map is reading
+## the town: two streets cross in the middle, a ring road goes round them, and
+## every building turns to face whichever road it is next to. Road tiles work
+## out their own piece -- straight, corner, junction -- from which of their
+## neighbours are road too, so the map never has to say. Kenney trucks
+## (`Car`) drive loops of it, and they do not stop for pedestrians.
 ##
-## Everything shares a handful of materials and box meshes so the street stays
-## inside the draw-call budget in section 7 of the plan.
+## Every tile of one kind is a single MultiMesh, and the whole kit shares one
+## colour-map texture, so the town is about fifteen draw calls: the one-atlas
+## idea from section 2 of the plan, without having to draw the atlas.
+##
+## Built in code rather than in a .tscn on purpose. A hand-written .tscn full
+## of Transform3D literals is where this project once lost an afternoon: Godot
+## writes a basis **row by row**, so a transform typed as columns silently
+## inverts.
 
-## Half-width of the roadway. The pavement starts here.
-const ROAD_HALF := 5.0
-const EDGE := 62.0
+## One tile, in metres. The kit is built on a unit grid; at 10 m its doors are
+## 2 m tall and its road is as wide as a barangay street.
+const TILE := 10.0
+## The kit's ground pieces are thick for a toy city: at full scale a pavement
+## would be a 50 cm step nobody could walk up. They are flattened by this
+## instead: asphalt at ground level, a 10 cm kerb up to the pavement.
+const FLAT := 2.0
+## Anything standing on a base slab is sunk this far, so the slab sits level
+## with the pavement instead of being a plinth.
+const SINK := 0.4
+## The kit only has lamp posts as part of a full-height road. Sunk this far,
+## that road ends up under the flat one in the same tile, and only the posts
+## come up through it.
+const LAMP_SINK := 0.6
 
-## Facade colours. Washed-out pastel over bare concrete is what the street
-## actually looks like; saturation here would read as a cartoon.
-const FACADES := [
-	Color(0.82, 0.76, 0.64), Color(0.70, 0.74, 0.70), Color(0.86, 0.72, 0.60),
-	Color(0.74, 0.70, 0.76), Color(0.80, 0.80, 0.74), Color(0.66, 0.72, 0.78),
-	Color(0.88, 0.80, 0.66), Color(0.72, 0.66, 0.60),
+## Invisible walls, just inside the outer row of trees.
+const EDGE := 64.0
+
+## `#` road, `=` road with lamp posts, `a`-`d` buildings, `H` Lolo Ben's house,
+## `t` `T` trees, `f` fountain, `,` grass, `_` pavement, `K` the court.
+## Row 0 is the north edge (-z), column 0 the west (-x), and the middle tile
+## is the origin. A road off the edge of the map carries on out of town.
+const MAP := [
+	"TtTtTt#tTtTtT",
+	"Ttabcd#dacbtT",
+	"Tt##=###=##tT",
+	"Tb#cad=dKK#cT",
+	"Ta=bfc#bKK=dT",
+	"Td#adb#aKK#aT",
+	"#=##=###=##=#",
+	"Tc#dba#dcd#bT",
+	"Tb=atH#atb=cT",
+	"Ta#cdb#cad#aT",
+	"Tt##=###=##tT",
+	"Ttdabc#bdcatT",
+	"TtTtTt#tTtTtT",
 ]
 
-const AWNINGS := [
-	Color(0.78, 0.24, 0.20), Color(0.20, 0.42, 0.66),
-	Color(0.90, 0.68, 0.18), Color(0.22, 0.54, 0.36),
+## Things that stand up off the ground. Lolo Ben's house is the garage: the
+## smallest building in the kit, as it should be, and the only one used once.
+const STANDING := {
+	"a": "building-small-a", "b": "building-small-b", "c": "building-small-c",
+	"d": "building-small-d", "H": "building-garage",
+	"t": "grass-trees", "T": "grass-trees-tall", "f": "pavement-fountain",
+}
+const BUILDINGS := "abcdH"
+const FLOOR := {",": "grass", "_": "pavement", "K": "pavement"}
+
+## Each road piece and the sides it opens onto as it comes out of the kit,
+## N 1, E 2, S 4, W 8.
+const ROADS := {
+	5: "road-straight", 12: "road-corner", 14: "road-split", 15: "road-intersection",
+}
+## The four neighbours by bit: N, E, S, W.
+const SIDES := [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+## Where a building built facing S faces after this many quarter turns about
+## +Y: S, then E, N, W. Also the order roads are looked for in.
+const TURNS := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]
+
+## The loops the traffic drives round, as the tiles it turns at, (column,
+## row) on MAP. All but one go clockwise, so wherever two share a street they
+## share a lane too; the second goes the other way round the ring, so the
+## ring has traffic both ways. Between them every street does.
+const ROUTES := [
+	{"cars": 3, "corners": [Vector2i(2, 2), Vector2i(10, 2), Vector2i(10, 10), Vector2i(2, 10)]},
+	{"cars": 2, "corners": [Vector2i(2, 2), Vector2i(2, 10), Vector2i(10, 10), Vector2i(10, 2)]},
+	{"cars": 1, "corners": [Vector2i(2, 6), Vector2i(10, 6), Vector2i(10, 10), Vector2i(2, 10)]},
+	{"cars": 1, "corners": [Vector2i(10, 6), Vector2i(2, 6), Vector2i(2, 2), Vector2i(10, 2)]},
+	{"cars": 1, "corners": [Vector2i(2, 2), Vector2i(6, 2), Vector2i(6, 10), Vector2i(2, 10)]},
+	{"cars": 1, "corners": [Vector2i(10, 10), Vector2i(6, 10), Vector2i(6, 2), Vector2i(10, 2)]},
 ]
+## Cars drive on the right, this far from the middle of the road.
+const LANE := 2.0
+const CARS := ["vehicle-truck-red", "vehicle-truck-yellow", "vehicle-truck-green",
+	"vehicle-truck-purple"]
 
 ## Where a customer may stand: on the pavement, already facing the road.
 var customer_spots: Array[Transform3D] = []
 
-## Doorstep of Lolo Ben's house — the refill point, and where the day starts.
-## Deliberately a few steps off the cross street rather than deep in a block:
-## the first thing the player sees has to be the town, not a back wall.
-var home_position := Vector3(-9.0, 0.0, 26.0)
-var player_start := Vector3(-6.8, 0.0, 26.0)
+## Doorstep of Lolo Ben's house -- the refill point, and where the day starts.
+## Both come from the `H` on the map.
+var home_position := Vector3.ZERO
+var player_start := Vector3.ZERO
 
 var _mats := {}
-var _rng := RandomNumberGenerator.new()
+var _kit := {}
 
 
 func _ready() -> void:
-	_rng.seed = 20261103
 	_build_sky()
 	_build_ground()
-	_build_roads()
-	_build_blocks()
+	_build_tiles()
 	_build_court()
 	_build_home()
-	_build_props()
+	_build_traffic()
 	_build_bounds()
-	_build_customer_spots()
 
 
 # --- lighting and sky ------------------------------------------------------
@@ -96,129 +158,139 @@ func _build_sky() -> void:
 	add_child(sun)
 
 
-# --- surfaces --------------------------------------------------------------
+# --- the map ---------------------------------------------------------------
 
+## Inside the town every tile covers the ground, but it is what everyone
+## stands on, and it runs on under the fog past the last row of trees. What
+## you see of it sits a little lower than what you stand on: the kit's asphalt
+## is at ground level, and two surfaces at the same height flicker.
 func _build_ground() -> void:
-	_slab("Ground", Vector3(0, -0.1, 0), Vector3(EDGE * 2.2, 0.2, EDGE * 2.2),
-		Color(0.44, 0.42, 0.37), true)
+	_slab("Ground", Vector3(0, -0.15, 0), Vector3(EDGE * 4.0, 0.2, EDGE * 4.0),
+		Color(0.44, 0.42, 0.37), false)
+	_wall("Floor", Vector3(0, -0.1, 0), Vector3(EDGE * 4.0, 0.2, EDGE * 4.0))
 
 
-func _build_roads() -> void:
-	var road := Color(0.26, 0.25, 0.26)
-	_slab("RoadMain", Vector3(0, 0.005, 0), Vector3(EDGE * 2.2, 0.02, ROAD_HALF * 2.0),
-		road, false)
-	_slab("RoadCross", Vector3(0, 0.01, 0), Vector3(ROAD_HALF * 2.0, 0.02, EDGE * 2.2),
-		road, false)
+func _build_tiles() -> void:
+	var placed := {}
+	for r in MAP.size():
+		for c in MAP[r].length():
+			var ch: String = MAP[r][c]
+			var at := _centre(Vector2i(c, r))
 
-	# Centre dashes on the main street only.
-	for i in 24:
-		var x := -57.0 + i * 5.0
-		if absf(x) < ROAD_HALF + 1.0:
-			continue
-		_slab("Dash%d" % i, Vector3(x, 0.02, 0), Vector3(2.2, 0.02, 0.22),
-			Color(0.86, 0.82, 0.55), false)
+			if ch == "#" or ch == "=":
+				var piece := _road_piece(r, c)
+				_place(placed, piece[0], at, piece[1], FLAT, 0.0)
+				if ch == "=":
+					_place(placed, "road-straight-lightposts", at, piece[1], TILE, LAMP_SINK)
+			elif STANDING.has(ch):
+				var turn := _facing(r, c)
+				_place(placed, STANDING[ch], at, turn, TILE, SINK)
+				if ch in BUILDINGS:
+					_building(ch, at, turn)
+			else:
+				_place(placed, FLOOR.get(ch, "grass"), at, 0, FLAT, 0.0)
 
-	# Pavement, with a kerb lip that also keeps the player off the edge.
-	for side in [-1.0, 1.0]:
-		_slab("WalkH%d" % int(side), Vector3(0, 0.06, side * (ROAD_HALF + 1.8)),
-			Vector3(EDGE * 2.2, 0.12, 3.0), Color(0.60, 0.58, 0.53), false)
-		_slab("WalkV%d" % int(side), Vector3(side * (ROAD_HALF + 1.8), 0.07, 0),
-			Vector3(3.0, 0.12, EDGE * 2.2), Color(0.60, 0.58, 0.53), false)
-		_slab("KerbH%d" % int(side), Vector3(0, 0.08, side * (ROAD_HALF + 0.2)),
-			Vector3(EDGE * 2.2, 0.16, 0.3), Color(0.72, 0.70, 0.64), false)
-		_slab("KerbV%d" % int(side), Vector3(side * (ROAD_HALF + 0.2), 0.09, 0),
-			Vector3(0.3, 0.16, EDGE * 2.2), Color(0.72, 0.70, 0.64), false)
-
-
-# --- buildings -------------------------------------------------------------
-
-## One row of lots per side of each road, with alley gaps left in.
-func _build_blocks() -> void:
-	var front := ROAD_HALF + 3.4
-
-	# Along the main street, shop fronts face north or south.
-	for sz in [-1.0, 1.0]:
-		var x := -52.0
-		var i := 0
-		while x < 52.0:
-			var w := _rng.randf_range(6.0, 11.0)
-			if absf(x + w * 0.5) < ROAD_HALF + 6.0:
-				x += w + 1.0  # keep the junction clear
-				continue
-			if _rng.randf() < 0.18:
-				x += _rng.randf_range(4.0, 7.0)  # alley
-				continue
-			_lot("MainB%d_%d" % [int(sz), i], Vector3(x + w * 0.5, 0.0, sz * front),
-				w, _rng.randf_range(3.2, 8.5), _rng.randf_range(7.0, 11.0), sz < 0.0)
-			x += w + _rng.randf_range(0.4, 1.4)
-			i += 1
-
-	# Along the cross street they face east or west. Rotating the lot is the
-	# only difference, so the same builder does both.
-	for sx in [-1.0, 1.0]:
-		var z := -46.0
-		var i := 0
-		while z < 46.0:
-			var w := _rng.randf_range(6.0, 10.0)
-			# The south-west quadrant is left open for the house.
-			if absf(z + w * 0.5) < ROAD_HALF + 6.0 or (sx < 0.0 and z > 13.0):
-				z += w + 1.0
-				continue
-			if _rng.randf() < 0.22:
-				z += _rng.randf_range(4.0, 8.0)
-				continue
-			_lot("CrossB%d_%d" % [int(sx), i], Vector3(sx * front, 0.0, z + w * 0.5),
-				w, _rng.randf_range(3.0, 7.5), _rng.randf_range(7.0, 10.0),
-				sx > 0.0, true)
-			z += w + _rng.randf_range(0.5, 1.6)
-			i += 1
+	for model in placed:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = _kit_mesh(model)
+		mm.instance_count = placed[model].size()
+		for i in placed[model].size():
+			mm.set_instance_transform(i, placed[model][i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = model
+		mmi.multimesh = mm
+		# Roads, grass and pavement are too flat to throw a shadow worth the
+		# pass, and flattened this thin they only throw acne on themselves.
+		if model in ROADS.values() or model in FLOOR.values():
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
 
 
-## One building plus its awning and shuttered ground floor. `width` runs along
-## the street, `depth` away from it; `flip` turns the shop front to face the
-## other side of the road, and `sideways` swaps the two axes for the cross
-## street.
-func _lot(lot_name: String, at: Vector3, width: float, height: float, depth: float,
-		flip: bool, sideways := false) -> void:
-	var facade: Color = FACADES[_rng.randi() % FACADES.size()]
-	var face_sign := -1.0 if flip else 1.0
+## One tile of `model`, turned `turn` quarter turns, scaled up to a tile across
+## and `height` metres tall per kit unit.
+func _place(placed: Dictionary, model: String, at: Vector3, turn: int, height: float,
+		sink: float) -> void:
+	var basis := Basis(Vector3.UP, turn * PI * 0.5).scaled(Vector3(TILE, height, TILE))
+	if not placed.has(model):
+		placed[model] = []
+	placed[model].append(Transform3D(basis, at - Vector3(0, sink, 0)))
 
-	var size := Vector3(width, height, depth)
-	var centre := at
-	if sideways:
-		size = Vector3(depth, height, width)
-		centre += Vector3(face_sign * depth * 0.5, height * 0.5, 0.0)
-	else:
-		centre += Vector3(0.0, height * 0.5, face_sign * depth * 0.5)
 
-	_slab(lot_name, centre, size, facade, true)
+## A building is solid, and the pavement in front of a shop is where a
+## customer waits -- off to one side, because on a lamp road the post stands
+## dead centre.
+func _building(ch: String, at: Vector3, turn: int) -> void:
+	var front: Vector2i = TURNS[turn]
+	var out := Vector3(front.x, 0.0, front.y)
+	var height := _kit_mesh(STANDING[ch]).get_aabb().size.y * TILE - SINK
+	_wall("Building", at + Vector3(0, height * 0.5, 0),
+		Vector3(TILE * 0.92, height, TILE * 0.92))
 
-	# A darker ground-floor band, so a 7m box reads as a building with a shop
-	# in it rather than as a crate.
-	_slab(lot_name + "Base", Vector3(centre.x, 1.2, centre.z),
-		Vector3(size.x * 0.99, 2.4, size.z * 0.99), facade.darkened(0.28), false)
+	if ch == "H":
+		home_position = at + out * (TILE * 0.5 + 0.4)
+		# On the pavement, clear of the traffic.
+		player_start = home_position + out * 0.5
+		return
 
-	# Awning over the doorway, on the street-facing side.
-	var awn: Color = AWNINGS[_rng.randi() % AWNINGS.size()]
-	var out := 1.5
-	if sideways:
-		_slab(lot_name + "Awn",
-			Vector3(centre.x - face_sign * (size.x * 0.5 + out * 0.5), 2.7, centre.z),
-			Vector3(out, 0.12, width * 0.8), awn, false)
-	else:
-		_slab(lot_name + "Awn",
-			Vector3(centre.x, 2.7, centre.z - face_sign * (size.z * 0.5 + out * 0.5)),
-			Vector3(width * 0.8, 0.12, out), awn, false)
+	var spot := Transform3D.IDENTITY.rotated(Vector3.UP, atan2(-out.x, -out.z))
+	spot.origin = at + out * (TILE * 0.5 + 0.5) + out.cross(Vector3.UP) * 2.5 \
+		+ Vector3(0, 0.1, 0)
+	customer_spots.append(spot)
 
+
+## The road piece for a tile and how far to turn it, from which of its four
+## neighbours are road too.
+func _road_piece(r: int, c: int) -> Array:
+	var open := 0
+	for i in 4:
+		if _is_road(r + SIDES[i].y, c + SIDES[i].x):
+			open |= 1 << i
+	for sides in ROADS:
+		# A quarter turn moves every opening one side round: E to N, N to W.
+		var turned: int = sides
+		for turn in 4:
+			if turned == open:
+				return [ROADS[sides], turn]
+			turned = (turned >> 1) | ((turned & 1) << 3)
+	# A dead end: a straight piece the right way round.
+	return ["road-straight", 0 if open & 5 else 1]
+
+
+## Quarter turns that face a building (built facing S) onto a road next to it.
+func _facing(r: int, c: int) -> int:
+	for turn in 4:
+		if _is_road(r + TURNS[turn].y, c + TURNS[turn].x):
+			return turn
+	return 0
+
+
+func _is_road(r: int, c: int) -> bool:
+	if r < 0 or r >= MAP.size() or c < 0 or c >= MAP[r].length():
+		return true
+	return MAP[r][c] == "#" or MAP[r][c] == "="
+
+
+## The mesh out of one of the kit's .glb files. Each is a single mesh with
+## the kit's shared material already on it.
+func _kit_mesh(model: String) -> Mesh:
+	if not _kit.has(model):
+		var scene: Node = load("res://assets/kenney/city/%s.glb" % model).instantiate()
+		_kit[model] = scene.find_children("*", "MeshInstance3D", true, false)[0].mesh
+		scene.free()
+	return _kit[model]
+
+
+# --- places ----------------------------------------------------------------
 
 func _build_court() -> void:
-	# The barangay court, in the open lot behind the north-east block.
-	var c := Vector3(28.0, 0.0, -30.0)
-	_slab("Court", c + Vector3(0, 0.03, 0), Vector3(17.0, 0.06, 26.0),
+	# The barangay court, open to the ring road in the north-east block.
+	var c := Vector3(25.0, 0.0, -20.0)
+	_slab("Court", c + Vector3(0, 0.13, 0), Vector3(17.0, 0.02, 26.0),
 		Color(0.34, 0.40, 0.46), false)
 	for z in [-8.0, 0.0, 8.0]:
-		_slab("CourtLine%d" % int(z), c + Vector3(0, 0.05, z),
-			Vector3(16.0, 0.06, 0.18), Color(0.92, 0.92, 0.88), false)
+		_slab("CourtLine%d" % int(z), c + Vector3(0, 0.145, z),
+			Vector3(16.0, 0.01, 0.18), Color(0.92, 0.92, 0.88), false)
 
 	for sz in [-1.0, 1.0]:
 		var base := c + Vector3(0, 0, sz * 12.0)
@@ -228,29 +300,18 @@ func _build_court() -> void:
 			Vector3(1.6, 1.0, 0.1), Color(0.90, 0.90, 0.86), false)
 
 
+## The house itself is the `H` tile. This is the warm light on the doorstep --
+## the only one in town -- and the refill trigger.
 func _build_home() -> void:
-	# Lolo Ben's house: deliberately the smallest building in town, and the
-	# only one with a warm light on the porch.
-	var h := home_position + Vector3(-5.0, 0.0, 0.0)
-	_slab("Home", h + Vector3(0, 1.6, 0), Vector3(7.0, 3.2, 7.0),
-		Color(0.78, 0.66, 0.50), true)
-	_slab("HomeRoof", h + Vector3(0, 3.35, 0), Vector3(7.8, 0.3, 7.8),
-		Color(0.48, 0.30, 0.22), false)
-	_slab("HomePorch", home_position + Vector3(0, 0.08, 0), Vector3(3.6, 0.16, 2.8),
-		Color(0.58, 0.52, 0.44), false)
-	# Door on the east face, so it looks out at the street.
-	_slab("HomeDoor", h + Vector3(3.52, 1.05, 0.0), Vector3(0.08, 2.1, 1.0),
-		Color(0.34, 0.22, 0.16), false)
-
 	var lamp := OmniLight3D.new()
 	lamp.name = "PorchLight"
-	lamp.position = home_position + Vector3(0, 2.6, 0.2)
+	lamp.position = home_position + Vector3(0, 2.6, 0)
 	lamp.light_color = Color(1.0, 0.82, 0.55)
 	lamp.light_energy = 1.4
 	lamp.omni_range = 9.0
 	add_child(lamp)
 
-	# The refill trigger: the player only needs to stand on the porch.
+	# The player only needs to stand on the doorstep.
 	var area := Area3D.new()
 	area.name = "HomeArea"
 	area.position = home_position + Vector3(0, 1.5, 0)
@@ -264,106 +325,52 @@ func _build_home() -> void:
 	add_child(area)
 
 
-func _build_props() -> void:
-	# Lamp posts down both pavements, as one multimesh: dozens of identical
-	# poles for the price of one draw call.
-	var pole := BoxMesh.new()
-	pole.size = Vector3(0.18, 5.0, 0.18)
-	pole.material = _material(Color(0.32, 0.31, 0.30))
-
-	# Set at the back of the pavement rather than on the kerb. A pole on the
-	# kerb lands between the follow camera and the player constantly, which
-	# is worse than it is authentic.
-	var back := ROAD_HALF + 2.9
-	var spots: Array[Vector3] = []
-	for i in 11:
-		var x := -50.0 + i * 10.0
-		if absf(x) < ROAD_HALF + 3.0:
-			continue
-		spots.append(Vector3(x, 2.5, -back))
-		spots.append(Vector3(x, 2.5, back))
-	for i in 9:
-		var z := -40.0 + i * 10.0
-		if absf(z) < ROAD_HALF + 3.0:
-			continue
-		spots.append(Vector3(-back, 2.5, z))
-		spots.append(Vector3(back, 2.5, z))
-
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = pole
-	mm.instance_count = spots.size()
-	for i in spots.size():
-		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, spots[i]))
-
-	var mmi := MultiMeshInstance3D.new()
-	mmi.name = "LampPosts"
-	mmi.multimesh = mm
-	add_child(mmi)
-
-	# A few parked jeepneys along the kerb. Three boxes each is enough for the
-	# silhouette at the distance the camera keeps.
-	_jeepney(Vector3(-18.0, 0.0, -ROAD_HALF + 1.4), 0.0, Color(0.84, 0.26, 0.20))
-	_jeepney(Vector3(14.0, 0.0, ROAD_HALF - 1.4), 180.0, Color(0.22, 0.46, 0.70))
-	_jeepney(Vector3(-ROAD_HALF + 1.4, 0.0, 42.0), 90.0, Color(0.92, 0.72, 0.22))
+## The traffic: each route's cars spread evenly round it, each route started
+## at a different point so no two cars begin on top of each other.
+func _build_traffic() -> void:
+	var traffic := Node3D.new()
+	traffic.name = "Traffic"
+	add_child(traffic)
+	var n := 0
+	for r in ROUTES.size():
+		var lane := _lane(ROUTES[r]["corners"])
+		for i in ROUTES[r]["cars"]:
+			var car := Car.new()
+			car.name = "Car%d" % n
+			car.setup(load("res://assets/kenney/vehicles/%s.glb" % CARS[n % CARS.size()]),
+				lane, (i + r * 0.13) / ROUTES[r]["cars"])
+			traffic.add_child(car)
+			n += 1
 
 
-func _jeepney(at: Vector3, yaw: float, color: Color) -> void:
-	var body := StaticBody3D.new()
-	body.name = "Jeepney"
-	body.position = at
-	body.rotation_degrees = Vector3(0, yaw, 0)
-	add_child(body)
+## A route's corners moved into its lane: to the right of the way in to each
+## one and of the way out of it.
+func _lane(corners: Array) -> PackedVector3Array:
+	var points := PackedVector3Array()
+	for i in corners.size():
+		var at := _centre(corners[i])
+		var into := (at - _centre(corners[i - 1])).normalized()
+		var onto := (_centre(corners[(i + 1) % corners.size()]) - at).normalized()
+		points.append(at + (into + onto).cross(Vector3.UP) * LANE)
+	return points
 
-	_child_box(body, Vector3(0, 0.8, 0), Vector3(2.1, 1.1, 5.4), color, true)
-	_child_box(body, Vector3(0, 1.5, -1.1), Vector3(1.9, 0.9, 2.6), color.lightened(0.12), false)
-	_child_box(body, Vector3(0, 1.75, 1.2), Vector3(2.2, 0.12, 3.2), Color(0.86, 0.86, 0.82), false)
+
+func _centre(tile: Vector2i) -> Vector3:
+	return Vector3((tile.x - 6) * TILE, 0.0, (tile.y - 6) * TILE)
 
 
 ## Invisible walls at the town's edge. Cheaper and more reliable than making
 ## the ground big enough that nobody walks off it.
 func _build_bounds() -> void:
-	for spec in [
-		[Vector3(0, 6, -EDGE), Vector3(EDGE * 2.0, 12.0, 1.0)],
-		[Vector3(0, 6, EDGE), Vector3(EDGE * 2.0, 12.0, 1.0)],
-		[Vector3(-EDGE, 6, 0), Vector3(1.0, 12.0, EDGE * 2.0)],
-		[Vector3(EDGE, 6, 0), Vector3(1.0, 12.0, EDGE * 2.0)],
-	]:
-		var body := StaticBody3D.new()
-		body.name = "Bound"
-		body.position = spec[0]
-		var shape := CollisionShape3D.new()
-		var box := BoxShape3D.new()
-		box.size = spec[1]
-		shape.shape = box
-		body.add_child(shape)
-		add_child(body)
-
-
-## Pavement positions a customer can wait at, each already facing the road, so
-## the spawner only has to pick one.
-func _build_customer_spots() -> void:
-	var specs := [
-		[Vector3(-30.0, 0.0, -(ROAD_HALF + 2.0)), 180.0],
-		[Vector3(-12.0, 0.0, ROAD_HALF + 2.0), 0.0],
-		[Vector3(16.0, 0.0, -(ROAD_HALF + 2.0)), 180.0],
-		[Vector3(34.0, 0.0, ROAD_HALF + 2.0), 0.0],
-		[Vector3(ROAD_HALF + 2.0, 0.0, -24.0), 270.0],
-		[Vector3(-(ROAD_HALF + 2.0), 0.0, -34.0), 90.0],
-		[Vector3(ROAD_HALF + 2.0, 0.0, 22.0), 270.0],
-		[Vector3(24.0, 0.0, -19.0), 200.0],
-		[Vector3(-40.0, 0.0, ROAD_HALF + 2.0), 0.0],
-		[Vector3(44.0, 0.0, -(ROAD_HALF + 2.0)), 180.0],
-	]
-	for spec in specs:
-		var t := Transform3D.IDENTITY.rotated(Vector3.UP, deg_to_rad(spec[1]))
-		t.origin = spec[0]
-		customer_spots.append(t)
+	_wall("Bound", Vector3(0, 6, -EDGE), Vector3(EDGE * 2.0, 12.0, 1.0))
+	_wall("Bound", Vector3(0, 6, EDGE), Vector3(EDGE * 2.0, 12.0, 1.0))
+	_wall("Bound", Vector3(-EDGE, 6, 0), Vector3(1.0, 12.0, EDGE * 2.0))
+	_wall("Bound", Vector3(EDGE, 6, 0), Vector3(1.0, 12.0, EDGE * 2.0))
 
 
 # --- building blocks -------------------------------------------------------
 
-## A box. `solid` gives it collision; decoration (road paint, awnings, bands)
+## A box. `solid` gives it collision; decoration (court paint, hoop boards)
 ## does not need any, and leaving it out keeps the physics world small.
 func _slab(slab_name: String, centre: Vector3, size: Vector3, color: Color, solid: bool) -> void:
 	var mesh := BoxMesh.new()
@@ -379,38 +386,26 @@ func _slab(slab_name: String, centre: Vector3, size: Vector3, color: Color, soli
 		add_child(mi)
 		return
 
+	_wall(slab_name, centre, size)
+	get_child(-1).add_child(mi)
+
+
+## Collision with nothing of its own to see: the kit's buildings, and the
+## town's edge.
+func _wall(wall_name: String, centre: Vector3, size: Vector3) -> void:
 	var body := StaticBody3D.new()
-	body.name = slab_name
+	body.name = wall_name
 	body.position = centre
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = size
 	shape.shape = box
 	body.add_child(shape)
-	body.add_child(mi)
 	add_child(body)
 
 
-func _child_box(parent: Node3D, at: Vector3, size: Vector3, color: Color, solid: bool) -> void:
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.position = at
-	mi.material_override = _material(color)
-	parent.add_child(mi)
-	if not solid:
-		return
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = size
-	shape.shape = box
-	shape.position = at
-	parent.add_child(shape)
-
-
-## Materials are cached by colour, so the hundred-odd boxes in town share a
-## couple of dozen materials instead of owning one each.
+## Materials are cached by colour, so the boxes in town share a handful of
+## materials instead of owning one each.
 func _material(color: Color) -> StandardMaterial3D:
 	var key := color.to_html()
 	if _mats.has(key):

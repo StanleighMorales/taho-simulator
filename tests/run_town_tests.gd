@@ -29,6 +29,7 @@ var _player: Node3D = null
 var _town: Node3D = null
 var _customers: Node = null
 var _subject: Node3D = null
+var _wait_from := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -37,6 +38,10 @@ func _ready() -> void:
 	_player = _main.get_node("Player")
 	_town = _main.get_node("Town")
 	_customers = _main.get_node("Customers")
+	# Traffic only runs in its own section. Anywhere else a car passing at
+	# the wrong moment would decide the result.
+	for car in get_tree().get_nodes_in_group("cars"):
+		car.process_mode = Node.PROCESS_MODE_DISABLED
 
 
 func _process(_delta: float) -> void:
@@ -97,6 +102,8 @@ func _process(_delta: float) -> void:
 				"block=%.2f" % _main._serving._tofu.remaining())
 			_check("the street is hidden", _town.visible == false)
 			_check("the player is frozen", _player.frozen)
+			_player.hit_by_car(Vector3(0, 0, 8))
+			_check("a car cannot hit him while he is serving", _player.dead == false)
 			_check("nothing was paid yet", GameState.money == before)
 			_wait = 4
 
@@ -152,6 +159,31 @@ func _process(_delta: float) -> void:
 				GameState.sago == GameState.LOAD_SIZE
 				and GameState.arnibal == GameState.LOAD_SIZE)
 			_check("and now a sale is possible again", GameState.can_serve())
+
+			_section("traffic")
+			_subject = get_tree().get_nodes_in_group("cars")[0]
+			_check("there is traffic", get_tree().get_nodes_in_group("cars").size() >= 6)
+			_wait_from = _subject.global_position
+			for car in get_tree().get_nodes_in_group("cars"):
+				car.process_mode = Node.PROCESS_MODE_INHERIT
+			_wait = SETTLE
+
+		6:
+			_check("the cars drive", _subject.global_position.distance_to(_wait_from) > 0.5,
+				"moved=%.2fm" % _subject.global_position.distance_to(_wait_from))
+			# Step out right in front of one.
+			_player.global_position = _subject.global_position \
+				+ _subject.global_transform.basis.z * 1.5 + Vector3(0, 0.2, 0)
+			_wait = SETTLE
+
+		7:
+			_check("a car that runs into him knocks him down", _player.dead)
+			_check("and he cannot walk while he is down", _player.frozen)
+			_check("the street says what happened", _main._toast.visible)
+			_player.revive(_town.player_start)
+			_check("he gets up again at home",
+				not _player.dead and not _player.frozen
+				and _player.global_position.distance_to(_town.home_position) < 2.0)
 			_report()
 			return
 

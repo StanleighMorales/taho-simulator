@@ -12,7 +12,8 @@ there is not, and pushing down while you sweep bites deeper, which fills it fast
 rougher. Pull up (or off the side of the bucket) to lift it out, and let go where you
 want it tipped. Go back for more tofu after the syrup if the cup looks short.
 The order ends when you drag the cup to the customer, who tells you what was wrong with
-it. When the buckets run dry, walk home and refill.
+it. When the buckets run dry, walk home and refill. Mind the traffic on the way: the
+trucks do not stop for pedestrians, and one that hits Lolo Ben sends him back home.
 
 **Controls:** WASD / arrows to walk, or tap the ground to walk there · drag to look ·
 `E` (or tap a customer you are standing next to) to serve · `V` (or the button top
@@ -54,8 +55,8 @@ drags in material, gets heavier as it fills and leans into the turn. Each one co
 runs of the same movement rather than pinning a number, so tuning stays free to move while
 the intent does not.
 
-The second is 30 assertions over the roaming layer: the town builds, first person puts
-the camera at Lolo Ben's eyes, customers appear,
+The second is 37 assertions over the roaming layer: the town builds, first person puts
+the camera at Lolo Ben's eyes, the traffic drives and knocks him down, customers appear,
 standing next to one offers a sale, the switch into the serving view and back works, and
 the money and supplies move the right way. It runs as a **scene**, not with `--script` —
 a custom main loop does not register the `GameState` autoload that both it and the code
@@ -81,6 +82,15 @@ without reading §1 of the plan:
 - **Thread support must stay off** (`variant/thread_support=false` in `export_presets.cfg`).
   Thread-enabled builds require `COOP`/`COEP` response headers, which GitHub Pages cannot
   set.
+
+## Credits
+
+The town is built from Kenney's City Kit (CC0), taken from
+[Starter-Kit-City-Builder](https://github.com/KenneyNL/Starter-Kit-City-Builder) into
+`assets/kenney/city/`, and the traffic is Kenney's trucks (CC0) from
+[Starter-Kit-Racing](https://github.com/KenneyNL/Starter-Kit-Racing) in
+`assets/kenney/vehicles/`. The layout is the `MAP` in `scenes/town/town.gd`, one letter per
+10 m tile.
 
 ## Deployment
 

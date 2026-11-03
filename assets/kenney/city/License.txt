@@ -1,0 +1,5 @@
+City Kit models by Kenney (www.kenney.nl), from
+https://github.com/KenneyNL/Starter-Kit-City-Builder
+
+License: Creative Commons Zero, CC0
+http://creativecommons.org/publicdomain/zero/1.0/

@@ -14,6 +14,8 @@ extends CharacterBody3D
 ## slopes worth the name.
 
 signal interact_pressed()
+## A car hit him. He lies where he fell until `revive`.
+signal died()
 
 const SPEED := 4.4
 const ACCEL := 14.0
@@ -52,6 +54,7 @@ var _drag_moved := 0.0
 var _bob := 0.0
 var _distance := CAM_DISTANCE
 var first_person := false
+var dead := false
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _rig: Node3D = $Rig
@@ -79,6 +82,26 @@ func toggle_view() -> void:
 	for mesh in _rig.get_children():
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY \
 			if first_person else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
+
+## Knocked down by a car going `push` (its velocity). A frozen player is
+## serving or already down, and a car cannot hit him twice.
+func hit_by_car(push: Vector3) -> void:
+	if frozen:
+		return
+	dead = true
+	frozen = true
+	var fall := create_tween().set_parallel()
+	fall.tween_property(self, "global_position", global_position + push.normalized() * 2.0, 0.3)
+	fall.tween_property(_rig, "rotation_degrees:x", 85.0, 0.3)
+	died.emit()
+
+
+func revive(at: Vector3) -> void:
+	_rig.rotation_degrees.x = 0.0
+	global_position = at
+	dead = false
+	frozen = false
 
 
 func _physics_process(delta: float) -> void:
@@ -197,8 +220,10 @@ func _place_camera(weight: float) -> void:
 	var dir := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
 
 	if first_person:
-		# The rig's walk bob is his head bob too.
-		var eye := global_position + Vector3(0.0, EYE_HEIGHT + _rig.position.y, 0.0)
+		# The rig's walk bob is his head bob too, and when he falls the eyes
+		# go down with him.
+		var eye := global_position + Vector3(0.0,
+			maxf(EYE_HEIGHT * cos(_rig.rotation.x), 0.3) + _rig.position.y, 0.0)
 		_camera.global_position = eye
 		_camera.look_at(eye - dir, Vector3.UP)
 		return

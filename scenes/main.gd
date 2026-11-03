@@ -15,6 +15,9 @@ const CustomerScene := preload("res://scenes/npc/customer.tscn")
 ## the game, so a crowd would remove the reason the town exists.
 const WAITING := 3
 const RESPAWN_DELAY := 4.5
+## How long Lolo Ben lies in the road after a car hits him, before he is back
+## on his doorstep with the walk out to do again.
+const DOWN_TIME := 3.0
 
 var _target: Node3D = null
 var _serving_now: Node3D = null
@@ -44,6 +47,7 @@ var _serve_environment: Environment
 func _ready() -> void:
 	_player.global_position = _town.player_start + Vector3(0, 0.2, 0)
 	_player.interact_pressed.connect(_on_interact)
+	_player.died.connect(_on_player_died)
 	_serving.order_finished.connect(_on_order_finished)
 	_town.get_node("HomeArea").body_entered.connect(_on_home_entered)
 
@@ -101,7 +105,7 @@ func _unhandled_input(event: InputEvent) -> void:
 # --- the mode switch -------------------------------------------------------
 
 func _on_interact() -> void:
-	if _serving_now != null:
+	if _serving_now != null or _player.dead:
 		return
 	if _target == null:
 		return
@@ -145,6 +149,12 @@ func _on_order_finished(pay: int, tofu_used: float, sago_used: float, arnibal_us
 	_refresh_hud()
 	if not GameState.can_serve():
 		_say("That was the last cup. Time to walk home.")
+
+
+func _on_player_died() -> void:
+	_say("Nasagasaan si Lolo Ben! Hit by a car. Back home.")
+	await get_tree().create_timer(DOWN_TIME).timeout
+	_player.revive(_town.player_start + Vector3(0, 0.2, 0))
 
 
 func _on_home_entered(body: Node) -> void:
